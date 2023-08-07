@@ -21,7 +21,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.append("/home/zms/code/clip_guided")
+sys.path.append("/home/zz/code/DL-DKD")
 from method.config import BaseOptions
 from method.model import MS_SL_Net
 
