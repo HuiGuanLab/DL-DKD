@@ -1,28 +1,23 @@
-# Partially Relevant Video Retrieval
-Source code of our ACM MM'2022 paper [Partially Relevant Video Retrieval](https://arxiv.org/abs/2208.12510).
+# DL-DKD
+Source code of our ACM MM'2022 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval]().
 
-Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.github.io/prvr/).
+<!-- Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.github.io/prvr/). -->
 
 <img src="https://github.com/HuiGuanLab/ms-sl/blob/main/figures/pvr_model.png" width="1100px">
 
 ## Table of Contents
 
 * [Environments](#environments)
-* [MS-SL on TVR](#MS-SL-on-TVR)
+* [DLDKD on TVR](#DLDKD-on-TVR)
   * [Required Data](#Required-Data)
   * [Model Training](#Training)
   * [Model Evaluation](#Evaluation)
   * [Expected Performance](#Expected-Performance)
-* [MS-SL on Activitynet](#MS-SL-on-activitynet)
+* [DLDKD on Activitynet](#DLDKD-on-activitynet)
   * [Required Data](#Required-Data-1)
   * [Model Training](#Training-1)
   * [Model Evaluation](#Evaluation-1)
   * [Expected Performance](#Expected-Performance-1)
-* [MS-SL on Charades-STA](#MS-SL-on-Charades-STA)
-  * [Required Data](#Required-Data-2)
-  * [Model Training](#Training-2)
-  * [Model Evaluation](#Evaluation-2)
-  * [Expected Performance](#Expected-Performance-2)
 * [Reference](#Reference)
 * [Acknowledgement](#Acknowledgement)
 
@@ -38,36 +33,30 @@ Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.gith
 
 We used Anaconda to setup a deep learning workspace that supports PyTorch. Run the following script to install the required packages.
 ```
-conda create --name ms_sl python=3.8
-conda activate ms_sl
-git clone https://github.com/HuiGuanLab/ms-sl.git
-cd ms-sl
+conda create --name DLDKD python=3.8
+conda activate DLDKD
+git clone https://github.com/HuiGuanLab/DL-DKD.git
+cd DLDKD
 pip install -r requirements.txt
 conda deactivate
 ```
 
-## MS-SL on TVR
+## DLDKD on TVR
 
 ### Required Data
 Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
-```
-# download the data of TVR
-ROOTPATH=$HOME/VisualSearch
-mkdir -p $ROOTPATH && cd $ROOTPATH
-wget http://8.210.46.84:8787/prvr/data/tvr.tar
-tar -xvf tvr.tar
-```
+
 
 ### Training
-Run the following script to train `MS-SL` network on TVR. It will save the chechpoint that performs best on the validation set as the final model.
+Run the following script to train `DLDKD` network on TVR. It will save the chechpoint that performs best on the validation set as the final model.
 
 
 ```
 #Add project root to PYTHONPATH (Note that you need to do this each time you start a new session.)
 source setup.sh
 
-conda activate ms-sl
+conda activate DLDKD
 
 ROOTPATH=$HOME/VisualSearch
 RUN_ID=runs_0
@@ -110,9 +99,9 @@ tar -xvf checkpoint_tvr.tar -C $ROOTPATH/$DATASET/results
 
 |             | R@1  | R@5  | R@10 | R@100 | SumR  |
 | :---------: | :--: | :--: | :--: | :---: | :---: |
-| Text-to-Video | 13.5 | 32.1 | 43.4 | 83.4  | 172.3 |
+| Text-to-Video | 14.4 | 34.9 | 45.8 | 84.9  | 179.9 |
 
-## MS-SL on Activitynet
+## DLDKD on Activitynet
 ### Required Data
 Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
@@ -124,12 +113,12 @@ tar -xvf activitynet.tar
 ```
 
 ### Training
-Run the following script to train `MS-SL` network on Activitynet.
+Run the following script to train `DLDKD` network on Activitynet.
 ```
 #Add project root to PYTHONPATH (Note that you need to do this each time you start a new session.)
 source setup.sh
 
-conda activate ms-sl
+conda activate DLDKD
 
 ROOTPATH=$HOME/VisualSearch
 RUN_ID=runs_0
@@ -166,64 +155,9 @@ tar -xvf checkpoint_activitynet.tar -C $ROOTPATH/$DATASET/results
 
 |             | R@1  | R@5  | R@10 | R@100 | SumR  |
 | :---------: | :--: | :--: | :--: | :---: | :---: |
-| Text-to-Video | 7.1 | 22.5 | 34.7 | 75.8  | 140.1 |
+| Text-to-Video | 8.0 | 25.0 | 37.5 | 77.1  | 147.6 |
 
-## MS-SL on Charades-STA
 
-### Required Data
-Run the following script to download the video feature and text feature of the Charades-STA dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
-
-```
-ROOTPATH=$HOME/VisualSearch
-mkdir -p $ROOTPATH && cd $ROOTPATH
-wget http://8.210.46.84:8787/prvr/data/charades.tar
-tar -xvf charades.tar
-```
-
-### Training
-Run the following script to train `MS-SL` network on Charades-STA.
-
-```
-#Add project root to PYTHONPATH (Note that you need to do this each time you start a new session.)
-source setup.sh
-
-conda activate ms-sl
-
-ROOTPATH=$HOME/VisualSearch
-RUN_ID=runs_0
-GPU_DEVICE_ID=0
-
-./do_charades.sh $RUN_ID $ROOTPATH $GPU_DEVICE_ID
-```
-
-### Evaluation
-The model is placed in the directory $ROOTPATH/$DATASET/results/$MODELDIR after training. To evaluate it, please run the following script:
-```
-DATASET=charades
-FEATURE=i3d_rgb_lgi
-ROOTPATH=$HOME/VisualSearch
-MODELDIR=charades-runs_0-2022_07_11_20_27_02
-
-./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
-```
-We also provide the trained checkpoint on Charades-STA, run the following script to evaluate it. The model can also be downloaded from [Here](https://pan.baidu.com/s/1IuUI1D04gSSmfiHQwedbgg?pwd=w6mk).
-```
-DATASET=charades
-FEATURE=i3d_rgb_lgi
-ROOTPATH=$HOME/VisualSearch
-MODELDIR=checkpoint_charades
-
-wget http://8.210.46.84:8787/prvr/checkpoints/checkpoint_charades.tar
-tar -xvf checkpoint_charades.tar -C $ROOTPATH/$DATASET/results
-
-./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
-```
-
-### Expected performance 
-
-|             | R@1  | R@5  | R@10 | R@100 | SumR  |
-| :---------: | :--: | :--: | :--: | :---: | :---: |
-| Text-to-Video | 1.8 | 7.1 | 11.8 | 47.7  | 68.4 |
 
 ## Reference
 ```

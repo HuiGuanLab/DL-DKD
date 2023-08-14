@@ -95,7 +95,7 @@ class BaseOptions(object):
         self.parser.add_argument("--initializer_range", type=float, default=0.02, help="initializer range for layers")
         # post processing
 
-        self.parser.add_argument("--model_name", type=str, default='MS-SL_Net')
+        self.parser.add_argument("--model_name", type=str, default='DLDKD')
         self.parser.add_argument('--root_path', type=str)
         self.parser.add_argument('--visual_feature', type=str)
         self.parser.add_argument('--collection', type=str)

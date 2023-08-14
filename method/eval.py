@@ -10,9 +10,9 @@ from collections import defaultdict
 from torch.utils.data import DataLoader
 
 
-from method.model import MS_SL_Net
-from method.data_provider import Dataset4MS_SL,VisDataSet4MS_SL,\
-    TxtDataSet4MS_SL,read_video_ids, collate_frame_val, collate_text_val
+from method.model import DLDKD
+from method.data_provider import Dataset4DLDKD,VisDataSet4DLDKD,\
+    TxtDataSet4DLDKD,read_video_ids, collate_frame_val, collate_text_val
 from utils.basic_utils import AverageMeter, BigFile, read_dict
 from method.config import TestOptions
 logger = logging.getLogger(__name__)
@@ -422,7 +422,7 @@ def setup_model(opt):
     ckpt_filepath = os.path.join(opt.ckpt_filepath)
     checkpoint = torch.load(ckpt_filepath)
     loaded_model_cfg = checkpoint["model_cfg"]
-    NAME_TO_MODELS = {'MS_SL_Net':MS_SL_Net}
+    NAME_TO_MODELS = {'DLDKD':DLDKD}
     model = NAME_TO_MODELS[opt.model_name](loaded_model_cfg,opt)
     
     model.load_state_dict(checkpoint["model"])
@@ -460,10 +460,10 @@ def start_inference():
     video2frames =  read_dict(os.path.join(rootpath, collection, 'FeatureData', opt.visual_feature, 'video2frames.txt'))
 
     test_video_ids_list = read_video_ids(caption_files['test'])
-    test_vid_dataset = VisDataSet4MS_SL(visual_feats, video2frames, opt,
+    test_vid_dataset = VisDataSet4DLDKD(visual_feats, video2frames, opt,
                                                video_ids=test_video_ids_list)
 
-    test_text_dataset = TxtDataSet4MS_SL(caption_files['test'], text_feat_path,opt)
+    test_text_dataset = TxtDataSet4DLDKD(caption_files['test'], text_feat_path,opt)
 
     model = setup_model(opt)
 

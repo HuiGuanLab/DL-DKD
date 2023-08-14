@@ -1,0 +1,7 @@
+python==3.8
+pytorch==1.9.0
+torchvision==0.10.0
+tensorboard==2.6.0
+tqdm==4.62.0
+easydict==1.9
+h5py==2.10.0

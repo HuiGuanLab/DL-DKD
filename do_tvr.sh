@@ -1,9 +1,9 @@
 collection=tvr
 visual_feature=i3d_resnet
 q_feat_size=768
-model_name=MS_SL_Net
+model_name=DLDKD
 margin=0.1
-root_path=/home/zms/VisualSearch
+root_path=/home/zz/data
 device_ids=0
 frame_weight=0.5
 clip_weight=0.5
@@ -14,7 +14,7 @@ n_heads=4
 use_clip=true
 double_branch=true
 decay_way=1
-loss_init_weight=0.1 #用于权重上升的时候增加的值
+loss_init_weight=0.1
 loss_scale_weight=0.1
 linear_b=1
 linear_k=-0.01
@@ -23,7 +23,7 @@ exponential_k=0.95
 # training
 for decay_way in 1
 do
-  CUDA_VISIBLE_DEVICES=1 python method/train.py  --collection $collection --visual_feature $visual_feature \
+  CUDA_VISIBLE_DEVICES=2 python method/train.py  --collection $collection --visual_feature $visual_feature \
                       --root_path $root_path  --dset_name $collection \
                       --q_feat_size $q_feat_size --model_name $model_name \
                       --margin $margin --device_ids $device_ids \

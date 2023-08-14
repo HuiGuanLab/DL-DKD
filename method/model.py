@@ -4,17 +4,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from easydict import EasyDict as edict
-from method.model_components import BertAttention, LinearLayer, BertSelfAttention, TrainablePositionalEncoding
-from method.model_components import clip_nce, frame_nce, clip_mse, clip_kl, clip_info, clip_mse_max_pos_pair,clip_kl_only_pos, \
-                                    clip_mse_only_pos_max, \
-                                    clip_dis_feat,clip_mse_pos_pair, clip_score_matrix , \
-                                    clip_scl_modified
+from method.model_components import BertAttention, LinearLayer, TrainablePositionalEncoding
+from method.model_components import clip_nce,clip_kl_only_pos, clip_dis_feat
 
 
 
-class MS_SL_Net(nn.Module):
+class DLDKD(nn.Module):
     def __init__(self, config, opt):
-        super(MS_SL_Net, self).__init__()
+        super(DLDKD, self).__init__()
         self.config = config
         self.epoch = 0
         self.use_clip_guiyi = opt.use_clip_guiyi
@@ -66,26 +63,14 @@ class MS_SL_Net(nn.Module):
 
         self.B_mapping_linear = nn.Linear(config.B_hidden_size, out_features=config.B_hidden_size)
 
-
-
         self.nce_criterion = clip_nce(reduction='mean')
 
         self.reset_parameters()
         self.use_clip = opt.use_clip
 
-        # self.clip_loss = clip_mse()
-        # self.clip_loss = clip_mse_pos_pair()
 
-        # self.clip_loss = clip_kl()
         self.clip_loss = clip_kl_only_pos()
 
-        # self.clip_loss = clip_info()
-        self.clip_dis_feat_loss = clip_dis_feat()
-
-        # self.clip_feat_loss = clip_scl()
-        # self.clip_feat_loss = clip_scl_modified()
-
-        # self.clip_matrix_loss = clip_score_matrix()
 
         self.scale_weight = opt.loss_scale_weight
         if opt.decay_way >3 and opt.decay_way <7:
@@ -141,43 +126,24 @@ class MS_SL_Net(nn.Module):
             frame_trip_loss = self.get_clip_triplet_loss(max_video_score, query_labels)
 
         c_guide_loss=0
-        c_scl_loss=0
-        c_feat_dis_loss=0
-        clip_feat_loss=0
-        c_matrix_loss=0
         c_tri_loss = self.get_clip_triplet_loss(max_predict_video_score, query_labels)
 
         if self.use_clip:
             _, clip_score = self.get_clip_scale_scores(clip_query_feat,clip_video_features,frame_video_mask)
 
-            # c_guide_loss = self.scale_weight * self.weight * self.clip_dis_feat_loss(F.normalize(encoded_frame_feat_2, dim=-1),
-            #                                              F.normalize(clip_video_features, dim=-1), frame_video_mask)
-            # c_guide_loss += self.scale_weight * self.weight * self.clip_dis_feat_loss(F.normalize(video_query_B.squeeze(1), dim=-1),
-            #                                               F.normalize(clip_query_feat, dim=-1))
-
-            #KL loss,敏松原代码
             c_guide_loss = (self.scale_weight * self.weight + self.init_weight) * self.clip_loss(max_predict_video_score_,clip_score, frame_video_mask,query_labels) #分布进行对齐
-
-            # c_guide_loss = 0.2 * self.clip_feat_loss(encoded_frame_feat_2,clip_video_features, frame_video_mask) #和clip进行对齐
-            # c_guide_loss = 0.1 * self.clip_feat_loss(encoded_frame_feat_2,clip_video_features, frame_video_mask)
-            # c_scl_loss = 1 * self.clip_feat_loss(encoded_frame_feat_2,clip_video_features, frame_video_mask)
-
-            # c_matrix_loss = self.weight * self.clip_matrix_loss(encoded_frame_feat_2,clip_video_features,frame_video_mask)
 
         max_predict_video_score_ = self.get_unnormalized_clip_scale_scores(video_query_B, encoded_frame_feat_2, frame_video_mask)
         c_nce_loss = 0.04 * self.nce_criterion(query_labels, label_dict, max_predict_video_score_)
 
-        # loss = frame_nce_loss + frame_trip_loss + c_tri_loss + c_nce_loss + 2 * c_guide_loss + 0.02 * c_scl_loss + 0.004 * c_feat_dis_loss
 
-        loss = c_tri_loss + c_guide_loss + c_scl_loss + c_matrix_loss + c_nce_loss
+        loss = c_tri_loss + c_guide_loss + c_nce_loss
         if self.double_branch:
             loss += frame_nce_loss + frame_trip_loss
 
         return loss, {"loss_overall": float(loss), 'clip_trip_loss': c_tri_loss,
                       'frame_nce_loss': frame_nce_loss, 'clip_guide_loss': c_guide_loss,
-                      'frame_trip_loss':frame_trip_loss ,'clip_feat_loss':clip_feat_loss,
-                      'clip_feat_dis_loss':c_feat_dis_loss,'c_matrix_loss':c_matrix_loss,
-                      'clip_scl_loss': c_scl_loss,'c_nce_loss':c_nce_loss
+                      'frame_trip_loss':frame_trip_loss ,'c_nce_loss':c_nce_loss
                       }
 
 
@@ -194,14 +160,7 @@ class MS_SL_Net(nn.Module):
             return A_video_query, B_video_query
         return None, B_video_query
 
-    # def encode_context(self, frame_video_feat, video_mask=None):
-    #     # frame_video_feat = F.relu(self.vid_test_mapping(frame_video_feat))
-    #     # # frame_video_feat = F.relu(self.test_mapping_linear1(frame_video_feat))
-    #     # encoded_frame_feat_2 = self.vid_test_mapping_linear1(frame_video_feat)
-    #
-    #     encoded_frame_feat_2 = self.img_encoder(frame_video_feat)
-    #     return None, encoded_frame_feat_2
-
+    
 
     def encode_context(self, frame_video_feat, video_mask=None):
         B_encoded_frame_feat = self.encode_input(frame_video_feat, video_mask, self.B_frame_input_proj,

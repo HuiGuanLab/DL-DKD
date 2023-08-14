@@ -8,7 +8,6 @@ import numpy as np
 import warnings
 
 warnings.filterwarnings("ignore")
-import pickle
 from torch import optim as optim
 from easydict import EasyDict as EDict
 from tqdm import tqdm, trange
@@ -23,10 +22,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 sys.path.append("/home/zz/code/DL-DKD")
 from method.config import BaseOptions
-from method.model import MS_SL_Net
+from method.model import DLDKD
 
-from method.data_provider import Dataset4MS_SL, VisDataSet4MS_SL, \
-    TxtDataSet4MS_SL, collate_train, read_video_ids
+from method.data_provider import Dataset4DLDKD, VisDataSet4DLDKD, \
+    TxtDataSet4DLDKD, collate_train, read_video_ids
 
 from method.eval import eval_epoch, start_inference
 from method.optimization import BertAdam
@@ -56,15 +55,6 @@ def weight_linear_decay(b, k, epoch):
     return weight
 
 
-# def weight_decay(weight, rate):
-#     weight = weight * (1-rate)
-#     return weight
-# def weight_second_decay(weight,epoch, rate, total_epoch):
-#     weight = weight * (1-(epoch/total_epoch)**rate)
-#     return weight
-# def weight_linear_decay(weight,epoch, total_epoch):
-#     weight = weight * (1-epoch/total_epoch)
-#     return weight
 def weight_up(weight, rate):
     weight = weight ** rate
     return weight
@@ -92,8 +82,6 @@ def train_epoch(model, train_loader, optimizer, opt, epoch_i, training=True):
     loss_meters = OrderedDict(clip_trip_loss=AverageMeter(),
                               frame_nce_loss=AverageMeter(), frame_trip_loss=AverageMeter(),
                               loss_overall=AverageMeter(), clip_guide_loss=AverageMeter(),
-                              clip_feat_dis_loss=AverageMeter(), clip_feat_loss=AverageMeter(),
-                              c_matrix_loss=AverageMeter(), clip_scl_loss=AverageMeter(),
                               c_nce_loss=AverageMeter(),
                               )
 
@@ -126,18 +114,6 @@ def train_epoch(model, train_loader, optimizer, opt, epoch_i, training=True):
             model.weight = min(0.001*weight_up(1.05,epoch_i),0.1)
         elif opt.decay_way == 8:
             model.weight = max(min(0.1*(1 - weight_decay(opt.exponential_k, epoch_i)),0.1),0.001)
-
-    # 先慢后快
-    # init_weight = 1
-    # a_init_weight = 0.1
-    # rate=0.3
-    # model.weight = weight_second_decay(init_weight, epoch_i, rate=rate, total_epoch=100)
-    # model.a_weight = weight_second_decay(a_init_weight, epoch_i, rate=rate, total_epoch=100)
-
-    # 蒸馏损失权重上升
-    # 线性上升
-    # init_weight = 0.1
-    # model.weight = weight_up(init_weight, init_weight, 0.2)
 
 
     for batch_idx, batch in tqdm(enumerate(train_loader), desc="Training Iteration", total=num_training_examples):
@@ -203,10 +179,6 @@ def rm_key_from_odict(odict_obj, rm_suffix):
 
 
 def train(model, train_dataset, val_video_dataset, val_text_dataset, opt):
-    # Prepare optimizer
-    # pre_train_model_name = "activitynet_model"
-    # pre_train_model_name = f"{opt.collection}_model"
-    # model.load_state_dict(torch.load(f'/home/zms/code/clip_guided/{pre_train_model_name}.pth'))
     if opt.device.type == "cuda":
         logger.info("CUDA enabled.")
         model.to(opt.device)
@@ -302,13 +274,13 @@ def start_training(opt):
 
     video2frames = read_dict(os.path.join(rootpath, collection, 'FeatureData', opt.visual_feature, 'video2frames.txt'))
 
-    train_dataset = Dataset4MS_SL(caption_files['train'], visual_feats, text_feat_path, clip_vid_feat_path,
+    train_dataset = Dataset4DLDKD(caption_files['train'], visual_feats, text_feat_path, clip_vid_feat_path,
                                   clip_text_feat_path, opt, video2frames=video2frames)
 
-    val_text_dataset = TxtDataSet4MS_SL(caption_files['val'], text_feat_path, opt)
+    val_text_dataset = TxtDataSet4DLDKD(caption_files['val'], text_feat_path, opt)
 
     val_video_ids_list = read_video_ids(caption_files['val'])
-    val_video_dataset = VisDataSet4MS_SL(visual_feats, video2frames, opt, video_ids=val_video_ids_list)
+    val_video_dataset = VisDataSet4DLDKD(visual_feats, video2frames, opt, video_ids=val_video_ids_list)
 
     model_config = EDict(
         visual_input_size=opt.visual_feat_dim,
@@ -328,7 +300,7 @@ def start_training(opt):
         hard_pool_size=opt.hard_pool_size)
     logger.info("model_config {}".format(model_config))
 
-    NAME_TO_MODELS = {'MS_SL_Net': MS_SL_Net}
+    NAME_TO_MODELS = {'DLDKD': DLDKD}
     model = NAME_TO_MODELS[opt.model_name](model_config, opt)
     count_parameters(model)
 

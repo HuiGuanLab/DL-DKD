@@ -184,7 +184,7 @@ def collate_text_val(data):
 
     return target, words_mask, idxs, cap_ids
 import os
-class Dataset4MS_SL(data.Dataset):
+class Dataset4DLDKD(data.Dataset):
     """
     Load captions and video frame features by pre-trained CNN model.
     """
@@ -284,7 +284,7 @@ class Dataset4MS_SL(data.Dataset):
     def __len__(self):
         return self.length
 
-class VisDataSet4MS_SL(data.Dataset):
+class VisDataSet4DLDKD(data.Dataset):
 
     def __init__(self, visual_feat, video2frames, opt, video_ids=None):
         self.visual_feat = visual_feat
@@ -314,7 +314,7 @@ class VisDataSet4MS_SL(data.Dataset):
         return self.length
 
 
-class TxtDataSet4MS_SL(data.Dataset):
+class TxtDataSet4DLDKD(data.Dataset):
     """
     Load captions
     """
