@@ -2,7 +2,7 @@ collection=activitynet
 visual_feature=i3d
 map_size=32
 model_name=DLDKD
-root_path=/home/zz/data
+root_path=$1
 device_ids=0
 frame_weight=0.5
 clip_weight=0.5
@@ -20,9 +20,7 @@ linear_k=-0.01
 sigmoid_k=800
 exponential_k=0.95
 # training
-for loss_scale_weight in 0.1
-do
-  CUDA_VISIBLE_DEVICES=0 python method/train.py --collection $collection --visual_feature $visual_feature \
+CUDA_VISIBLE_DEVICES=0 python method/train.py --collection $collection --visual_feature $visual_feature \
                       --root_path $root_path --dset_name $collection \
                       --map_size $map_size --model_name $model_name --device_ids $device_ids \
                       --B_hidden_size $B_hidden_size --n_heads $n_heads --A_hidden_size $A_hidden_size \
@@ -32,4 +30,3 @@ do
                       --linear_k $linear_k --sigmoid_k $sigmoid_k --linear_b $linear_b \
                       --exponential_k $exponential_k --loss_scale_weight $loss_scale_weight
 
-done

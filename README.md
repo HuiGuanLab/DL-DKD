@@ -1,19 +1,19 @@
 # DL-DKD
-Source code of our ACM MM'2022 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval]().
+Source code of our ICCV 2023 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval]().
 
 <!-- Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.github.io/prvr/). -->
 
-<img src="https://github.com/HuiGuanLab/ms-sl/blob/main/figures/pvr_model.png" width="1100px">
+<img src="https://github.com/HuiGuanLab/DL-DKD/blob/master/figures/DLDKD_model.png" width="1100px">
 
 ## Table of Contents
 
 * [Environments](#environments)
-* [DLDKD on TVR](#DLDKD-on-TVR)
+* [DL-DKD on TVR](#DL-DKD-on-TVR)
   * [Required Data](#Required-Data)
   * [Model Training](#Training)
   * [Model Evaluation](#Evaluation)
   * [Expected Performance](#Expected-Performance)
-* [DLDKD on Activitynet](#DLDKD-on-activitynet)
+* [DL-DKD on Activitynet](#DL-DKD-on-activitynet)
   * [Required Data](#Required-Data-1)
   * [Model Training](#Training-1)
   * [Model Evaluation](#Evaluation-1)
@@ -36,12 +36,12 @@ We used Anaconda to setup a deep learning workspace that supports PyTorch. Run t
 conda create --name DLDKD python=3.8
 conda activate DLDKD
 git clone https://github.com/HuiGuanLab/DL-DKD.git
-cd DLDKD
+cd DL-DKD
 pip install -r requirements.txt
 conda deactivate
 ```
 
-## DLDKD on TVR
+## DL-DKD on TVR
 
 ### Required Data
 Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
@@ -49,8 +49,13 @@ Run the following script to download the video feature and text feature of the T
 
 
 ### Training
-Run the following script to train `DLDKD` network on TVR. It will save the chechpoint that performs best on the validation set as the final model.
+Run the following script to train `DL-DKD` network on TVR. It will save the chechpoint that performs best on the validation set as the final model.
 
+```
+ROOTPATH=$HOME/VisualSearch
+mkdir -p $ROOTPATH && cd $ROOTPATH
+unzip activitynet.zip
+```
 
 ```
 #Add project root to PYTHONPATH (Note that you need to do this each time you start a new session.)
@@ -59,21 +64,17 @@ source setup.sh
 conda activate DLDKD
 
 ROOTPATH=$HOME/VisualSearch
-RUN_ID=runs_0
-GPU_DEVICE_ID=0
 
-./do_tvr.sh $RUN_ID $ROOTPATH $GPU_DEVICE_ID
+./do_tvr.sh $ROOTPATH
 ```
-`$RUN_ID` is the name of the folder where the model is saved in.
 
-`$GPU_DEVICE_ID` is the index of the GPU where we train on.
 ### Evaluation
 The model is placed in the directory $ROOTPATH/$DATASET/results/$MODELDIR after training. To evaluate it, please run the following script:
 ```
 DATASET=tvr
 FEATURE=i3d_resnet
 ROOTPATH=$HOME/VisualSearch
-MODELDIR=tvr-runs_0-2022_07_11_20_27_02 
+MODELDIR=tvr-double_dim384_kl_decay0.02_eval_3_7-2022_11_04_09_16_28
 
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
@@ -85,8 +86,7 @@ FEATURE=i3d_resnet
 ROOTPATH=$HOME/VisualSearch
 MODELDIR=checkpoint_tvr
 
-wget http://8.210.46.84:8787/prvr/checkpoints/checkpoint_tvr.tar
-tar -xvf checkpoint_tvr.tar -C $ROOTPATH/$DATASET/results
+unzip checkpoint_tvr.zip -d $ROOTPATH/$DATASET/results
 
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
@@ -101,19 +101,18 @@ tar -xvf checkpoint_tvr.tar -C $ROOTPATH/$DATASET/results
 | :---------: | :--: | :--: | :--: | :---: | :---: |
 | Text-to-Video | 14.4 | 34.9 | 45.8 | 84.9  | 179.9 |
 
-## DLDKD on Activitynet
+## DL-DKD on Activitynet
 ### Required Data
 Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 ```
 ROOTPATH=$HOME/VisualSearch
 mkdir -p $ROOTPATH && cd $ROOTPATH
-wget http://8.210.46.84:8787/prvr/data/activitynet.tar
-tar -xvf activitynet.tar
+unzip activitynet.zip
 ```
 
 ### Training
-Run the following script to train `DLDKD` network on Activitynet.
+Run the following script to train `DL-DKD` network on Activitynet.
 ```
 #Add project root to PYTHONPATH (Note that you need to do this each time you start a new session.)
 source setup.sh
@@ -121,10 +120,8 @@ source setup.sh
 conda activate DLDKD
 
 ROOTPATH=$HOME/VisualSearch
-RUN_ID=runs_0
-GPU_DEVICE_ID=0
 
-./do_activitynet.sh $RUN_ID $ROOTPATH $GPU_DEVICE_ID
+./do_activitynet.sh $ROOTPATH
 ```
 
 ### Evaluation
@@ -133,7 +130,7 @@ The model is placed in the directory $ROOTPATH/$DATASET/results/$MODELDIR after 
 DATASET=activitynet
 FEATURE=i3d
 ROOTPATH=$HOME/VisualSearch
-MODELDIR=activitynet-runs_0-2022_07_11_20_27_02
+MODELDIR=activitynet-double_kl_8_ex_up_k800.0_loss_scale_weight1.0-2022_11_11_14_12_27
 
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
@@ -145,8 +142,7 @@ FEATURE=i3d
 ROOTPATH=$HOME/VisualSearch
 MODELDIR=checkpoint_activitynet
 
-wget http://8.210.46.84:8787/prvr/checkpoints/checkpoint_activitynet.tar
-tar -xvf checkpoint_activitynet.tar -C $ROOTPATH/$DATASET/results
+unzip checkpoint_activitynet.zip -d $ROOTPATH/$DATASET/results
 
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
@@ -161,11 +157,11 @@ tar -xvf checkpoint_activitynet.tar -C $ROOTPATH/$DATASET/results
 
 ## Reference
 ```
-@inproceedings{dong2022prvr,
-title = {Partially Relevant Video Retrieval},
-author = {Jianfeng Dong and Xianke Chen and Minsong Zhang and Xun Yang and Shujie Chen and Xirong Li and Xun Wang},
-booktitle = {Proceedings of the 30th ACM International Conference on Multimedia},
-year = {2022},
+@inproceedings{dong2023DLDKD,
+title = {Dual Learning with Dynamic Knowledge Distillation for Partially Relevant Video Retrieval},
+author = {Jianfeng Dong and Minsong Zhang and Zheng Zhang and Xianke Chen and Daizong Liu and Xiaoye Qu and Xun Wang and Baolong Liu},
+booktitle = {IEEE International Conference on Computer Vision},
+year = {2023},
 }
 ```
 ## Acknowledgement

@@ -236,27 +236,12 @@ def eval_epoch(model, val_video_dataset, val_text_dataset, opt, test=False):
         cal_perf(-1 * score_sum, t2v_gt, test)
     if opt.double_branch:
         if test:
-            for i in [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
-                logging.info(f'{i}:{1-i}')
-                if i==0.5:
-                    t2v_r1, t2v_r5, t2v_r10, t2v_r100, t2v_medr, t2v_meanr, t2v_map_score = cal_perf(-1 * (i * scores + (1 - i) * clip_scores), t2v_gt,test)
-                else:
-                    cal_perf(-1 * (i*scores+(1-i)*clip_scores), t2v_gt, test)
-        else:
-            t2v_r1, t2v_r5, t2v_r10, t2v_r100, t2v_medr, t2v_meanr, t2v_map_score = cal_perf(-1 * score_sum, t2v_gt, test)
+            t2v_r1, t2v_r5, t2v_r10, t2v_r100, t2v_medr, t2v_meanr, t2v_map_score = cal_perf(-1 * (0.3 * scores + 0.7 * clip_scores), t2v_gt,test)
+                
 
     currscore = 0
     currscore += (t2v_r1 + t2v_r5 + t2v_r10 + t2v_r100)
-    if not test:
-        score_sum = 0.3 * scores + 0.7 * clip_scores
-        t2v_r1, t2v_r5, t2v_r10, t2v_r100, t2v_medr, t2v_meanr, t2v_map_score = cal_perf(-1 * score_sum, t2v_gt, test)
-        a = 0
-        a += (t2v_r1 + t2v_r5 + t2v_r10 + t2v_r100)
-        opt.writer.add_scalar("Eval/t2v_r1", t2v_r1, model.epoch)
-        opt.writer.add_scalar("Eval/t2v_r5", t2v_r5, model.epoch)
-        opt.writer.add_scalar("Eval/t2v_r10", t2v_r10, model.epoch)
-        opt.writer.add_scalar("Eval/t2v_r100", t2v_r100, model.epoch)
-        opt.writer.add_scalar("Eval/t2v_all", a, model.epoch)
+    
 
     return currscore
 def l2norm(X):
@@ -283,137 +268,9 @@ def uniform_feature_sampling(features, max_len):
             new_features.append(features[s_idx])
     new_features = np.asarray(new_features)
     return new_features
-def eval_dataset_clip(dataset):
-    clip_vid_feat = h5py.File(os.path.join(f'/home/zms/VisualSearch/{dataset}/'
-                                           f'FeatureData/new_clip_vit_32_{dataset}_vid_features.hdf5'), 'r')
-    clip_txt_feat = h5py.File(
-        os.path.join(f'/home/zms/VisualSearch/{dataset}/TextData/clip_ViT_B_32_{dataset}_query_feat.hdf5'), 'r')
-    # clip_vid_feat = h5py.File(os.path.join(f'/home/zms/cxk/TCL/ac_tcl_vid_feat.hdf5'), 'r')
-    # clip_txt_feat = h5py.File(
-    #     os.path.join(f'/home/zms/cxk/TCL/ac_tcl_text_feat.hdf5'), 'r')
-    video_id=[]
-    video_feat=[]
-    txt_feat = []
-    txt_id = []
-    with open(f'/home/zms/VisualSearch/{dataset}/TextData/{dataset}test.caption.txt','r') as reader:
-        data=reader.readlines()
-        for i in data:
-            t_id,cap=i.split(' ',1)
-            txt_id.append(t_id)
-            txt_feat.append(np.array(clip_txt_feat[t_id]))
-            v_id = t_id.split('#',1)[0]
-            if v_id not in video_id:
-                video_id.append(v_id)
-                video_feat.append(np.array(clip_vid_feat[v_id]))
 
-    txt_feat = np.stack(txt_feat)
-    scores = np.zeros(shape=(len(txt_feat),len(video_feat)))
-    txt_feat = l2norm(txt_feat)
-    for i,feat in tqdm(enumerate(video_feat),total=len(video_feat)):
-        # feat = np.mean(feat,axis=0,keepdims=True)
-        feat = l2norm(feat)
-        v_score = np.dot(txt_feat, feat.T) #150000,L
-        v_score = np.max(v_score, axis=-1)
-        # v_score = v_score.squeeze()
-        scores[:,i] = v_score
-    _, t = get_gt(video_id, txt_id)
-    cal_perf(-1 * scores, t)
 
-def eval_clip():
-    clip_vid_feat = h5py.File(os.path.join('/home/zms/VisualSearch/tvr/'
-                                           'FeatureData/new_clip_vit_32_tvr_test_features.hdf5'), 'r')
-    clip_txt_feat = h5py.File(
-        os.path.join('/home/zms/VisualSearch/tvr/TextData/clip_ViT_B_32_tvr_query_feat.hdf5'), 'r')
 
-    video_id=[]
-    video_feat=[]
-    txt_feat = []
-    txt_id = []
-    score_min=1000
-    score_max=-10000
-
-    # video_feat = np.stack(video_feat)
-    # print(video_feat.shape)
-    #####只提取正样本之间的分数
-    # total_score={}
-    # for asd in [8,10,12,14,16,18,20]:
-    #     with open('/home/zms/VisualSearch/activitynet/TextData/activitynettrain.caption.txt','r') as reader:
-    #         data=reader.readlines()
-    #         for i in tqdm(data):
-    #             t_id,cap=i.split(' ',1)
-    #             txt_id.append(t_id)
-    #             text_feat = l2norm(np.array(clip_txt_feat[t_id]))
-    #             v_id = t_id.split('#',1)[0]
-    #             vid_feat = np.array(clip_vid_feat[v_id])
-    #             vid_feat = l2norm(uniform_feature_sampling(vid_feat,128))
-    #             v_score = np.dot(vid_feat, text_feat.T)
-    #             for j in v_score:
-    #                 j=j[0]
-    #                 j=round(j,asd)
-    #                 if j not in total_score.keys():
-    #                     total_score[j] = 0
-    #                 total_score[j] += 1
-    #     x = []
-    #     y = []
-    #     total_score_key = sorted(total_score.keys(), reverse=False)
-    #     for key in total_score_key:
-    #         x.append(key)
-    #         y.append(total_score[key])
-    #     fig, ax = plt.subplots()
-    #     ax.plot(x, y)
-    #     plt.draw()
-    #     plt.savefig(f"./only_Pos_{asd}points_Accuracy_rate.jpg")
-    #
-    # exit()
-    # ######
-    with open('/home/zms/VisualSearch/tvr/TextData/tvrtest.caption.txt','r') as reader:
-        data=reader.readlines()
-        for i in data:
-            t_id,cap=i.split(' ',1)
-            txt_id.append(t_id)
-            txt_feat.append(np.array(clip_txt_feat[t_id]))
-            v_id = t_id.split('#',1)[0]
-            if v_id not in video_id:
-                video_id.append(v_id)
-                video_feat.append(np.array(clip_vid_feat[v_id]))
-
-    txt_feat = np.stack(txt_feat).squeeze(1)
-    scores = np.zeros(shape=(len(txt_feat),len(video_feat)))
-    txt_feat = l2norm(txt_feat)
-    # total_score={}
-    for i,feat in tqdm(enumerate(video_feat),total=len(video_feat)):
-        feat = l2norm(feat)
-        v_score = np.dot(txt_feat, feat.T) #150000,L
-        v_score = np.max(v_score,axis=-1)
-        scores[:,i] = v_score
-        # for i in v_score:
-        #     for j in i:
-        #         if j not in total_score.keys():
-        #             total_score[j]=0
-        #         total_score[j] += 1
-        # fi_score = np.zeros(shape=(v_score.shape[0],))
-        # index = np.argsort(v_score, axis=1)[:,-10:]
-        # for idx, ii in enumerate(index):
-        #     fi_score[idx] = np.sum(v_score[idx,ii],keepdims=True)
-        # scores[:,i] = fi_score
-
-    # x=[]
-    # y=[]
-    # total_score_key = sorted(total_score.keys(), reverse=False)
-    # for key in total_score_key:
-    #     x.append(key)
-    #     y.append(total_score[key])
-    #     if key > score_max:
-    #         score_max = key
-    #     if key < score_min:
-    #         score_min = key
-
-    # print(score_min)
-    # print(score_max)
-    # fig, ax = plt.subplots()
-    # ax.plot(x, y)
-    # plt.draw()
-    # plt.savefig(f"./Accuracy rate.jpg")
 
 
 
@@ -474,6 +331,4 @@ def start_inference():
 
 
 if __name__ == '__main__':
-    eval_dataset_clip("tvr")
-    exit()
     start_inference()
