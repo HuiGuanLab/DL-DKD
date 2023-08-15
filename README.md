@@ -79,7 +79,7 @@ MODELDIR=tvr-double_dim384_kl_decay0.02_eval_3_7-2022_11_04_09_16_28
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
 
-We also provide the trained checkpoint on TVR, run the following script to evaluate it. The model can also be downloaded from [Here](https://pan.baidu.com/s/1d70cecBvwVqYwmvobJpbGw?pwd=zxzk). 
+We also provide the trained checkpoint on TVR, run the following script to evaluate it. The model can also be downloaded from [Here](https://pan.quark.cn/s/3fc1aba283d5). 
 ```
 DATASET=tvr
 FEATURE=i3d_resnet
@@ -135,7 +135,7 @@ MODELDIR=activitynet-double_kl_8_ex_up_k800.0_loss_scale_weight1.0-2022_11_11_14
 ./do_test.sh $DATASET $FEATURE $ROOTPATH $MODELDIR
 ```
 
-We also provide the trained checkpoint on Activitynet, run the following script to evaluate it. The model can also be downloaded from [Here](https://pan.baidu.com/s/10zMvaSGRyJWxGUgSPm2ySg?pwd=omgg).
+We also provide the trained checkpoint on Activitynet, run the following script to evaluate it. The model can also be downloaded from [Here](https://pan.quark.cn/s/d55c7937e74e).
 ```
 DATASET=activitynet
 FEATURE=i3d
