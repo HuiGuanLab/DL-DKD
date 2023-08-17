@@ -44,7 +44,7 @@ conda deactivate
 ## DL-DKD on TVR
 
 ### Required Data
-Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/8fad55178323). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 
 
@@ -103,7 +103,7 @@ unzip checkpoint_tvr.zip -d $ROOTPATH/$DATASET/results
 
 ## DL-DKD on Activitynet
 ### Required Data
-Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/0fc241b533d6). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 ```
 ROOTPATH=$HOME/VisualSearch
