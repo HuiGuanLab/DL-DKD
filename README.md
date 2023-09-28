@@ -165,6 +165,6 @@ year = {2023},
 }
 ```
 ## Acknowledgement
-The codes are modified from [TVRetrieval](https://github.com/jayleicn/TVRetrieval),[ReLoCLNet](https://github.com/IsaacChanghau/ReLoCLNet) and [MS-SL](https://github.com/HuiGuanLab/ms-sl).
+The codes are modified from [TVRetrieval](https://github.com/jayleicn/TVRetrieval), [ReLoCLNet](https://github.com/IsaacChanghau/ReLoCLNet) and [MS-SL](https://github.com/HuiGuanLab/ms-sl).
 
 This work was supported by the "Pioneer" and "Leading Goose" R\&D Program of Zhejiang (No.2023C01212), National Natural Science Foundation of China (No. 61976188), Young Elite Scientists Sponsorship Program by CAST (No. 2022QNRC001), the open research fund of The State Key Laboratory of Multimodal Artificial Intelligence Systems, and the Fundamental Research Funds for the Provincial Universities of Zhejiang.
