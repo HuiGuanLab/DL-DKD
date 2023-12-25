@@ -44,7 +44,7 @@ conda deactivate
 ## DL-DKD on TVR
 
 ### Required Data
-Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/8fad55178323). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/8086102776f4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 
 
@@ -103,7 +103,7 @@ unzip checkpoint_tvr.zip -d $ROOTPATH/$DATASET/results
 
 ## DL-DKD on Activitynet
 ### Required Data
-Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/0fc241b533d6). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/4df1583afa13). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 ```
 ROOTPATH=$HOME/VisualSearch
@@ -165,6 +165,6 @@ year = {2023},
 }
 ```
 ## Acknowledgement
-The codes are modified from [TVRetrieval](https://github.com/jayleicn/TVRetrieval), [ReLoCLNet](https://github.com/IsaacChanghau/ReLoCLNet) and [MS-SL](https://github.com/HuiGuanLab/ms-sl).
+The codes are modified from [TVRetrieval](https://github.com/jayleicn/TVRetrieval) and [ReLoCLNet](https://github.com/IsaacChanghau/ReLoCLNet).
 
-This work was supported by the "Pioneer" and "Leading Goose" R\&D Program of Zhejiang (No.2023C01212), National Natural Science Foundation of China (No. 61976188), Young Elite Scientists Sponsorship Program by CAST (No. 2022QNRC001), the open research fund of The State Key Laboratory of Multimodal Artificial Intelligence Systems, and the Fundamental Research Funds for the Provincial Universities of Zhejiang.
+This work was supported by the National Key R&D Program of China (2018YFB1404102), NSFC (62172420,61902347, 61976188, 62002323), the Public Welfare Technology Research Project of Zhejiang Province (LGF21F020010), the Open Projects Program of the National Laboratory of Pattern Recognition, the Fundamental Research Funds for the Provincial Universities of Zhejiang, and Public Computing Cloud of RUC.
