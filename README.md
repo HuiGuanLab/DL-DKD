@@ -1,8 +1,6 @@
 # DL-DKD
 Source code of our ICCV 2023 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval]().
 
-<!-- Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.github.io/prvr/). -->
-
 <img src="https://github.com/HuiGuanLab/DL-DKD/blob/master/figures/DLDKD_model.png" width="1100px">
 
 ## Table of Contents
@@ -44,8 +42,7 @@ conda deactivate
 ## DL-DKD on TVR
 
 ### Required Data
-Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/8086102776f4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
-
+The data can be downloaded from [Kuake pan](https://pan.quark.cn/s/8086102776f4) or [Google drive](https://drive.google.com/drive/folders/11dRUeXmsWU25VMVmeuHc9nffzmZhPJEj?usp=sharing). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 
 ### Training
@@ -103,7 +100,7 @@ unzip checkpoint_tvr.zip -d $ROOTPATH/$DATASET/results
 
 ## DL-DKD on Activitynet
 ### Required Data
-Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/4df1583afa13). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+The data can be downloaded from [Kuake pan](https://pan.quark.cn/s/4df1583afa13) or [Google drive](https://drive.google.com/drive/folders/11dRUeXmsWU25VMVmeuHc9nffzmZhPJEj?usp=sharing). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
 ```
 ROOTPATH=$HOME/VisualSearch
