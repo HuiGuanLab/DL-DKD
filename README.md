@@ -1,5 +1,5 @@
 # DL-DKD
-Source code of our ICCV 2023 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval]().
+Source code of our ICCV 2023 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval](http://openaccess.thecvf.com/content/ICCV2023/papers/Dong_Dual_Learning_with_Dynamic_Knowledge_Distillation_for_Partially_Relevant_Video_ICCV_2023_paper.pdf).
 
 <img src="https://github.com/HuiGuanLab/DL-DKD/blob/master/figures/DLDKD_model.png" width="1100px">
 
