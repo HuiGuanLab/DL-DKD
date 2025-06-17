@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 
 def safe_div(a, b):
     out = a / b
@@ -20,6 +23,7 @@ def onehot(indexes, N=None):
     output = indexes.new().long().resize_(*sz, N).zero_()
     output.scatter_(-1, indexes.unsqueeze(-1), 1)
     return output
+
 
 class clip_mse(nn.Module):
     def __init__(self, ):
@@ -98,211 +102,109 @@ class clip_kl_only_pos(nn.Module):
 
         return loss
 
-class clip_dis_feat(nn.Module):
-    def __init__(self ):
-        super(clip_dis_feat, self).__init__()
-        self.mse_loss = nn.MSELoss(reduction='mean')
-        self.kl_loss = nn.KLDivLoss(reduction="sum")
-        self.l1_loss = nn.L1Loss(reduction="mean")
-    def forward(self, x,target,mask=None):
-        loss=0
-        if(len(x.shape)==3):
-            for idx,m in enumerate(mask):
-                m = torch.nonzero(m > 0).shape[0]
-                p = x[idx, :m, :]
-                q = target[idx, :m, :]
-                # loss += self.mse_loss(p,q)
-                loss += self.kl_loss(F.log_softmax(p,dim=-1),F.softmax(q,dim=-1))
-                # loss += self.l1_loss(p,q)
-            loss = loss / x.shape[0]
-            loss *= 10
 
-        elif(len(x.shape)==2):
-            # loss += self.mse_loss(x, target)
-            loss += self.kl_loss(F.log_softmax(x, dim=-1), F.softmax(target, dim=-1))
-            # loss += self.l1_loss(x, target)
+class clip_nce_soft(nn.Module):
+    def __init__(self, reduction='mean'):
+        super(clip_nce_soft, self).__init__()
+        self.reduction = reduction
 
-        return loss
+    def forward(self, labels, label_dict, q2ctx_scores=None, sims=None, alpha=None, belta=0.8, contexts=None, queries=None):
+        """
+        the forward propagation process and calculate the loss value.
 
+        参数:
+        - label_dict: Mapping text and video
+        - q2ctx_scores: Similarity score
+        - sims: Similarity score for soft operation
+        - alpha: nce loss self-distillation, data partition threshold
+        - belta: nce loss self-distillation, GroundTruth and soft weighted and weighted
+        返回:
+        - loss: loss value
+        """
 
-# class clip_scl(nn.Module):
-#     def __init__(self):
-#         super(clip_scl, self).__init__()
-#         self.temperature=1
-#         self.variance=0.5
-#     def forward(self, embs, clip_embs, mask):
-#         embs = F.normalize(embs, dim=-1)
-#         clip_embs = F.normalize(clip_embs, dim=-1)
-#         loss = 0
-#         for idx, m in enumerate(mask):
-#             m = torch.nonzero(m > 0).shape[0]
-#             p = embs[idx, :m, :]
-#             q = clip_embs[idx, :m, :]
-#             logits = torch.exp(torch.matmul(p, q.transpose(0, 1)) / self.temperature)
-#
-#             sum_neg = torch.sum(logits,dim=-1).unsqueeze(-1)
-#
-#             weight = np.zeros(shape=(m,m))
-#             for i in range(m):
-#                 weight[i, i + 1:] = range(1, m - i)
-#                 weight[i + 1:, i] = range(1, m - i)
-#
-#             weight = torch.from_numpy(weight).cuda()
-#             weight = torch.exp(-((weight ** 2) / (2 * self.variance ** 2))) / self.variance * math.sqrt(math.pi * 2)
-#             weight = F.softmax(weight,dim=-1)
-#
-#             loss += ((-torch.sum(torch.log(logits/sum_neg) * weight))/m)
-#
-#         loss = loss / embs.shape[0]
-#         return loss
-#
-# class clip_scl_modified(nn.Module):
-#     def __init__(self):
-#         super(clip_scl_modified, self).__init__()
-#         self.temperature=1
-#         self.variance = 0.4
-#         self.target_variance = 0.5
-#         # self.scopes = 5
-#     def forward(self, embs, clip_embs, mask):
-#         embs = F.normalize(embs, dim=-1)
-#         # clip_embs = F.normalize(clip_embs, dim=-1)
-#         loss = 0
-#         for idx, m in enumerate(mask):
-#             m = torch.nonzero(m > 0).shape[0]
-#             p = embs[idx, :m, :]
-#             # q = clip_embs[idx, :m, :]
-#             logits = torch.matmul(p, p.transpose(0, 1)) / self.temperature
-#             logits = F.log_softmax(logits,dim=-1)
-#
-#             base_weight = np.zeros(shape=(m,m))
-#             for i in range(m):
-#                 base_weight[i, i + 1:] = range(1, m-i)
-#                 base_weight[i + 1:, i] = range(1, m-i)
-#             base_weight = torch.from_numpy(base_weight).float().cuda()
-#
-#             weight = torch.exp(-((base_weight ** 2) / (2 * self.variance ** 2))) / self.variance * math.sqrt(math.pi * 2)
-#             target = torch.exp(-((base_weight ** 2) / (2 * self.target_variance ** 2))) / self.target_variance * math.sqrt(math.pi * 2)
-#             # for i in range(m):
-#             #     if i>self.scopes:
-#             #         weight[i, 0:i - self.scopes] = 0
-#             #     if i<=m-self.scopes:
-#             #         weight[i, i + self.scopes:] = 0
-#
-#             weight = F.softmax(weight,dim=-1)
-#             target = F.softmax(target,dim=-1)
-#             # print(weight[10])
-#             # print(target[10])
-#             #
-#             # exit()
-#             l = weight * F.kl_div(logits, target, reduction='none')
-#             l = torch.sum(l,dim=-1)
-#             l = torch.mean(l,dim=0)
-#             loss += l
-#
-#         loss = loss / embs.shape[0]
-#         return loss
-class clip_scl_modified(nn.Module):
-    def __init__(self):
-        super(clip_scl_modified, self).__init__()
-        self.temperature=1
-        self.variance = 0.4
-        self.target_variance = 2
-    def forward(self, embs, clip_embs, mask):
-        embs = F.normalize(embs, dim=-1)
-        clip_embs = F.normalize(clip_embs, dim=-1)
-        loss = 0
-        for idx, m in enumerate(mask):
-            m = torch.nonzero(m > 0).shape[0]
-            p = embs[idx, :m, :]
-            q = clip_embs[idx, :m, :]
-            logits = torch.matmul(p, q.transpose(0, 1)) / self.temperature
-            logits = F.log_softmax(logits,dim=-1)
+        # Get batch size of query and video
+        query_bsz = q2ctx_scores.shape[0]
+        vid_bsz = q2ctx_scores.shape[1]
 
-            base_weight = np.zeros(shape=(m,m))
-            for i in range(m):
-                base_weight[i, i + 1:] = range(1, m-i)
-                base_weight[i + 1:, i] = range(1, m-i)
-            base_weight = torch.from_numpy(base_weight).float().cuda()
+        # Calculate number of queries and videos in hard and soft parts
+        hardQ = math.floor(alpha * query_bsz)
+        softQ = query_bsz - hardQ
 
-            target = torch.exp(-((base_weight ** 2) / (2 * self.target_variance ** 2))) / self.target_variance * math.sqrt(math.pi * 2)
+        hardV = math.floor(alpha * vid_bsz)
+        softV = vid_bsz - hardV
 
-            target = F.softmax(target,dim=-1)
+        # Initialize the GroundTruth matrix
+        I_ij = torch.zeros(query_bsz, vid_bsz).to(q2ctx_scores.device)
 
-            l = F.kl_div(logits, target, reduction='none')
-            l = torch.sum(l,dim=-1)
-            l = torch.mean(l,dim=0)
-            loss += l
+        # Update the GroundTruth matrix based on label dictionary
+        for i, label in label_dict.items():
+            I_ij[label, i] = 1
 
-        loss = loss / embs.shape[0]
-        return loss
-class clip_score_matrix(nn.Module):
-    def __init__(self, ):
-        super(clip_score_matrix, self).__init__()
-        self.mse_loss = nn.MSELoss(reduction='mean')
-        self.kl_loss = nn.KLDivLoss(reduction="sum")
-        self.tem = 1
-    def forward(self, x,target,mask):
-        loss=0
-        x = F.normalize(x, dim=-1)
-        target = F.normalize(target, dim=-1)
-        for index in range(x.shape[0]):
-            m=mask[index]
-            m=torch.nonzero(m>0).shape[0]
-            p = x[index, :m, :]
-            q = target[index, :m, :]
-            p = torch.matmul(p, p.transpose(0, 1))
-            q = torch.matmul(q, q.transpose(0, 1))
+        # Compute soft targets for text
+        I_ij_Q = I_ij.clone()
+        sims_t = torch.softmax(sims, dim=-1)
+        I_ij_Q[hardQ:, :] = torch.clamp((1 - belta) * sims_t[hardQ:, :] + belta * I_ij_Q[hardQ:, :], min=0)
 
-            # loss += self.mse_loss(p,q)
-            p = F.log_softmax(p / self.tem, dim=-1)
-            q = F.softmax(q / self.tem, dim=-1)
-            loss += self.kl_loss(p, q)
-        loss /= x.shape[0]
-        return loss
+        # Compute soft targets for video
+        I_ij_V = I_ij.T.clone()
+        sims_v = torch.softmax(sims.T, dim=-1)
+        I_ij_V[hardV:, :] = torch.clamp((1 - belta) * sims_v[hardV:, :] + belta * I_ij_V[hardV:, :], min=0)
 
-class clip_kl(nn.Module):
-    def __init__(self, ):
-        super(clip_kl, self).__init__()
-    def forward(self, x,target,mask,_):
-        loss=0
-        for index in range(x.shape[-1]):
-            m=mask[index]
-            m=torch.nonzero(m>0).shape[0]
-            p = x[:, :m, index]
-            q = target[:, :m, index]
-            # p = F.softmax(p, dim=-1)
-            # q = F.softmax(q, dim=-1)
-            logp_x = F.log_softmax(p, dim=-1)
-            p_y = F.softmax(q, dim=-1)
-            loss += F.kl_div(logp_x, p_y, reduction='sum')
-        loss /= x.shape[0]
-        return loss
+        # Calculate loss for the hard part of t2v
+        exp_q2ctx_scores_hard_t2v = torch.exp(q2ctx_scores[:hardQ, :])
+        t2v_nominator_hard_ = (I_ij_Q[:hardQ, :] * torch.log(exp_q2ctx_scores_hard_t2v)).sum()
+        t2v_nominator_hard = (I_ij_Q[:hardQ, :] * q2ctx_scores[:hardQ, :]).sum()
+        t2v_denominator_hard = (I_ij_Q[:hardQ, :] * torch.logsumexp(q2ctx_scores[:hardQ, :], dim=1, keepdim=True)).sum()
 
+        # Calculate loss for the soft part of t2v
+        exp_q2ctx_scores_soft_t2v = torch.exp(q2ctx_scores[hardQ:, :])
+        t2v_nominator_soft_ = (I_ij_Q[hardQ:, :] * torch.log(exp_q2ctx_scores_soft_t2v)).sum()
+        t2v_nominator_soft = (I_ij_Q[hardQ:, :] * q2ctx_scores[hardQ:, :]).sum()
+        t2v_denominator_soft = (I_ij_Q[hardQ:, :] * torch.logsumexp(q2ctx_scores[hardQ:, :], dim=1, keepdim=True)).sum()
 
-class clip_info(nn.Module):
-    def __init__(self, tmpeture=0.01):
-        super(clip_info, self).__init__()
-        self.tmpeture = tmpeture
-    def forward(self, x,target,mask,query_labels, label_dict):
-        loss=0
-        x = F.softmax(x, dim=1)
-        target = F.softmax(target, dim=1)
-        for i,labels in label_dict.items():
-            m = mask[i]
-            m = torch.nonzero(m > 0).shape[0]
-            pred = x[:, :m, i]
-            clip = target[:, :m, i].transpose(0,-1)
-            nominator = pred @ clip
-            nominator = nominator / self.tmpeture
-            nominator = torch.exp(nominator)
-            denominator = nominator
-            loss_=0
-            for j in labels:
-                deno = denominator[j,:].sum(dim=0)
-                no = nominator[j,i]
-                loss_ += -torch.log((no/deno))
-            loss += loss_
-        loss /= x.shape[0]
+        # Initialize numerator and denominator for the hard part of v2t
+        v2t_nominator_hard = torch.zeros(1).to(q2ctx_scores.device)
+        v2t_denominator_hard = torch.zeros(1).to(q2ctx_scores.device)
+        # Calculate loss for the hard part of v2t
+        for i, label in label_dict.items():
+            if i < hardV:
+                v2t_nominator_hard += torch.logsumexp(torch.log(I_ij_V[i, :] + 1e-12) + q2ctx_scores[:, i], dim=0)
+                v2t_denominator_hard += torch.logsumexp(q2ctx_scores[:, i], dim=0)
+
+        v2t_nominator_soft = torch.zeros(1).to(q2ctx_scores.device)
+        v2t_denominator_soft = torch.zeros(1).to(q2ctx_scores.device)
+        # Calculate loss for the soft part of v2t
+        for i, label in label_dict.items():
+            if i >= hardV:
+                v2t_nominator_soft += torch.logsumexp(torch.log(I_ij_V[i, :] + 1e-12) + q2ctx_scores[:, i], dim=0)
+                v2t_denominator_soft += torch.logsumexp(q2ctx_scores[:, i], dim=0)
+
+        # Calculate final loss according to reduction parameter
+        if self.reduction == 'mean':
+            soft_loss = 0.
+            hard_loss = 0.
+            # Calculate loss for hard part
+            if hardQ != 0 and hardV != 0:
+                hard_loss_t2v = (t2v_denominator_hard - t2v_nominator_hard) / hardQ
+                hard_loss_v2t = (v2t_denominator_hard - v2t_nominator_hard) / hardV
+                hard_loss = hard_loss_t2v + hard_loss_v2t
+
+            # Calculate loss for soft part
+            if softQ != 0 and softV != 0:
+                soft_loss_t2v = (t2v_denominator_soft - t2v_nominator_soft) / softQ
+                soft_loss_v2t = (v2t_denominator_soft - v2t_nominator_soft) / softV
+                soft_loss = soft_loss_t2v + soft_loss_v2t
+
+            # Combine hard and soft losses
+            loss = alpha * hard_loss + (1 - alpha) * soft_loss
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                print("NaN detected in value:", loss)
+
+        else:
+            # Directly calculate loss if mean reduction is not used
+            hard_loss = (t2v_denominator_hard - t2v_nominator_hard) + (v2t_denominator_hard - v2t_nominator_hard)
+            soft_loss = (t2v_denominator_soft - t2v_nominator_soft) + (v2t_denominator_soft - v2t_nominator_soft)
+            loss = alpha * hard_loss + (1 - alpha) * soft_loss
 
         return loss
 

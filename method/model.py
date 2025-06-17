@@ -5,80 +5,77 @@ import torch.nn.functional as F
 import numpy as np
 from easydict import EasyDict as edict
 from method.model_components import BertAttention, LinearLayer, TrainablePositionalEncoding
-from method.model_components import clip_nce,clip_kl_only_pos, clip_dis_feat
+from method.model_components import clip_nce,clip_kl_only_pos, clip_nce_soft
 
 
 
+    
 class DLDKD(nn.Module):
     def __init__(self, config, opt):
         super(DLDKD, self).__init__()
         self.config = config
-        self.epoch = 0
-        self.use_clip_guiyi = opt.use_clip_guiyi
-        self.use_clip = opt.use_clip
         self.double_branch = opt.double_branch
 
-        if self.double_branch:
-            self.A_query_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_desc_l,
-                                                               hidden_size=config.A_hidden_size,dropout=config.input_drop)
-            self.A_frame_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_ctx_l,
-                                                               hidden_size=config.A_hidden_size,dropout=config.input_drop)
-            self.A_query_input_proj = LinearLayer(config.query_input_size, config.A_hidden_size, layer_norm=True,
-                                                dropout=config.input_drop, relu=True)
-            self.A_query_encoder = BertAttention(
-                edict(hidden_size=config.A_hidden_size, intermediate_size=config.A_hidden_size,
-                      hidden_dropout_prob=config.drop, num_attention_heads=config.n_heads,
-                      attention_probs_dropout_prob=config.drop))
-            self.A_frame_encoder = BertAttention(
-                edict(hidden_size=config.A_hidden_size, intermediate_size=config.A_hidden_size,
-                      hidden_dropout_prob=config.drop, num_attention_heads=config.n_heads,
-                      attention_probs_dropout_prob=config.drop))
-
-            self.A_frame_input_proj = LinearLayer(config.visual_input_size, config.A_hidden_size, layer_norm=True,
-                                                dropout=config.input_drop, relu=True)
-            self.A_modular_vector_mapping = nn.Linear(config.A_hidden_size, out_features=1, bias=False)
-
-            self.A_mapping_linear = nn.Linear(config.A_hidden_size, out_features=config.A_hidden_size)
-
-
-        self.B_query_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_desc_l,
-                                                             hidden_size=config.B_hidden_size,
+        # inheritance query encoder
+        self.query_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_desc_l,
+                                                             hidden_size=config.inheritance_hidden,
                                                              dropout=config.input_drop)
-        self.B_modular_vector_mapping = nn.Linear(config.B_hidden_size, out_features=1, bias=False)
-        self.B_query_encoder = BertAttention(
-            edict(hidden_size=config.B_hidden_size, intermediate_size=config.B_hidden_size,
-                  hidden_dropout_prob=config.drop, num_attention_heads=config.n_heads,
-                  attention_probs_dropout_prob=config.drop))
-
-        self.B_query_input_proj = LinearLayer(config.query_input_size, config.B_hidden_size, layer_norm=True,
-                                              dropout=config.input_drop, relu=True)
-
-        self.B_frame_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_ctx_l,
-                                                           hidden_size=config.B_hidden_size, dropout=config.input_drop)
-        self.B_frame_input_proj = LinearLayer(config.visual_input_size, config.B_hidden_size, layer_norm=True,
+        self.query_input_proj = LinearLayer(config.query_input_size, config.inheritance_hidden, layer_norm=True,
                                             dropout=config.input_drop, relu=True)
-        self.B_frame_encoder = BertAttention(edict(hidden_size=config.B_hidden_size, intermediate_size=config.B_hidden_size,
-                                                 hidden_dropout_prob=config.drop, num_attention_heads=config.n_heads,
-                                                 attention_probs_dropout_prob=config.drop))
+        self.query_encoder = BertAttention(edict(hidden_size=config.inheritance_hidden,
+                                                intermediate_size=config.inheritance_hidden,
+                                                hidden_dropout_prob=config.drop,
+                                                num_attention_heads=config.n_heads,
+                                                attention_probs_dropout_prob=config.drop))
+        self.modular_vector_mapping = nn.Linear(config.inheritance_hidden, out_features=1, bias=False)
 
-        self.B_mapping_linear = nn.Linear(config.B_hidden_size, out_features=config.B_hidden_size)
+        # inheritance visual encoder
+        self.visual_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_ctx_l,
+                                                            hidden_size=config.inheritance_hidden,
+                                                            dropout=config.input_drop)
+        self.visual_input_proj = LinearLayer(config.visual_input_size, config.inheritance_hidden,
+                                                   layer_norm=True,dropout=config.input_drop, relu=True)
+        self.visual_encoder = copy.deepcopy(self.query_encoder)
+        self.out_mapping_linear = nn.Linear(config.inheritance_hidden, config.inheritance_hidden)
+
+        # exploration
+        if self.double_branch:
+            self.exp_query_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_desc_l,
+                                                               hidden_size=config.exploration_hidden,
+                                                               dropout=config.input_drop)
+            self.exp_query_input_proj = LinearLayer(config.query_input_size, config.exploration_hidden, layer_norm=True,
+                                                dropout=config.input_drop, relu=True)
+            self.exp_query_encoder = BertAttention(edict(hidden_size=config.exploration_hidden,
+                                                     intermediate_size=config.exploration_hidden,
+                                                     hidden_dropout_prob=config.drop,
+                                                     num_attention_heads=config.n_heads,
+                                                     attention_probs_dropout_prob=config.drop))
+            self.exp_modular_vector_mapping = nn.Linear(config.exploration_hidden, out_features=1, bias=False)
+
+            self.exp_visual_pos_embed = TrainablePositionalEncoding(max_position_embeddings=config.max_ctx_l,
+                                                                hidden_size=config.exploration_hidden,
+                                                                dropout=config.input_drop)
+            self.exp_visual_input_proj = LinearLayer(config.visual_input_size, config.exploration_hidden,
+                                                 layer_norm=True, dropout=config.input_drop, relu=True)
+            self.exp_visual_encoder = copy.deepcopy(self.exp_query_encoder)
+            self.exp_out_mapping_linear = nn.Linear(config.exploration_hidden, config.exploration_hidden)
 
         self.nce_criterion = clip_nce(reduction='mean')
+        self.nce_criterion_soft = clip_nce_soft(reduction='mean')
+        self.distill_loss = clip_kl_only_pos()
+
+        self.weight = 1
+
+        self.kl_intra_weight = opt.kl_intra_weight
+        self.inher_nce_weight = opt.inher_nce_weight
+        self.explore_nce_weight = opt.explore_nce_weight
+        self.collection = opt.collection
+        
+        self.alpha = opt.alpha 
+        self.belta = opt.belta
 
         self.reset_parameters()
-        self.use_clip = opt.use_clip
 
-
-        self.clip_loss = clip_kl_only_pos()
-
-
-        self.scale_weight = opt.loss_scale_weight
-        if opt.decay_way >3 and opt.decay_way <7:
-            self.init_weight = opt.loss_init_weight
-        else:
-            self.init_weight = 0
-
-        self.weight=1
 
     def reset_parameters(self):
         """ Initialize the weights."""
@@ -100,78 +97,134 @@ class DLDKD(nn.Module):
         self.config.use_hard_negative = use_hard_negative
         self.config.hard_pool_size = hard_pool_size
 
-    def forward(self, frame_video_feat, clip_video_features, frame_video_mask, query_feat,
-                query_mask, clip_query_feat, query_labels, cap_ids):
-
-        encoded_frame_feat_1, encoded_frame_feat_2 = self.encode_context(frame_video_feat, frame_video_mask)
-        video_query, video_query_B = self.encode_query(query_feat, query_mask)
-        max_video_score, max_video_score_, max_predict_video_score, max_predict_video_score_ \
-            = self.get_pred_from_raw_query(
-            video_query, video_query_B, encoded_frame_feat_1, encoded_frame_feat_2, frame_video_mask,
-            return_query_feats=True)
-        video_query_B = video_query_B.squeeze(1)
-
+    def forward(self, batch):
         label_dict = {}
-        for index, label in enumerate(query_labels):
+        for index, label in enumerate(batch['text_labels']):
             if label in label_dict:
                 label_dict[label].append(index)
             else:
                 label_dict[label] = []
                 label_dict[label].append(index)
 
-        frame_nce_loss = 0
-        frame_trip_loss = 0
+        inheritance_encoded_feat, exploration_encoded_feat = self.encode_context(batch['student_videos'],batch['student_videos_mask'])
+        inheritance_query, exploration_query = self.encode_query(batch['student_text'], batch['student_text_mask'])
+
+        #teacher scores
+        max_teacher_frame_scores, teacher_frame_scores \
+            = self.get_sim_scores(batch['teacher_text'].squeeze(),batch['teacher_videos'],batch['student_videos_mask'])
+        max_teacher_frame_scores_ \
+            = self.get_unnormalized_sim_scores(batch['teacher_text'].squeeze(), batch['teacher_videos'],batch['student_videos_mask'])
+        
+        # inher scores
+        max_inher_frame_scores, inher_frame_scores \
+            = self.get_sim_scores(inheritance_query,inheritance_encoded_feat,batch['student_videos_mask'])
+        max_inher_frame_scores_ \
+            = self.get_unnormalized_sim_scores(inheritance_query, inheritance_encoded_feat,batch['student_videos_mask'])
+        
         if self.double_branch:
-            frame_nce_loss = 0.04 * self.nce_criterion(query_labels, label_dict, max_video_score_)
-            frame_trip_loss = self.get_clip_triplet_loss(max_video_score, query_labels)
+            # explore scores
+            max_explor_frame_scores, explor_frame_scores \
+                = self.get_sim_scores(exploration_query,exploration_encoded_feat,batch['student_videos_mask'])
+            max_explor_frame_scores_ \
+                = self.get_unnormalized_sim_scores(exploration_query,exploration_encoded_feat,batch['student_videos_mask'])
 
-        c_guide_loss=0
-        c_tri_loss = self.get_clip_triplet_loss(max_predict_video_score, query_labels)
-
-        if self.use_clip:
-            _, clip_score = self.get_clip_scale_scores(clip_query_feat,clip_video_features,frame_video_mask)
-
-            c_guide_loss = (self.scale_weight * self.weight + self.init_weight) * self.clip_loss(max_predict_video_score_,clip_score, frame_video_mask,query_labels) #分布进行对齐
-
-        max_predict_video_score_ = self.get_unnormalized_clip_scale_scores(video_query_B, encoded_frame_feat_2, frame_video_mask)
-        c_nce_loss = 0.04 * self.nce_criterion(query_labels, label_dict, max_predict_video_score_)
-
-
-        loss = c_tri_loss + c_guide_loss + c_nce_loss
+        #loss
+        inher_trip = 0
+        inher_nce = 0
+        kl = 0
+        kl_intra = 0
+        
+        inher_trip = self.get_clip_triplet_loss(max_inher_frame_scores, batch['text_labels'])
+        if self.config.label_style == 'soft':
+            inher_nce = self.inher_nce_weight * self.nce_criterion_soft(batch['text_labels'],label_dict,max_inher_frame_scores_,
+                                                                            max_teacher_frame_scores_,self.alpha,self.belta)
+        else:
+            inher_nce = self.inher_nce_weight * self.nce_criterion(batch['text_labels'],label_dict,max_inher_frame_scores_)
+     
+        explore_trip = 0
+        explore_nce = 0
         if self.double_branch:
-            loss += frame_nce_loss + frame_trip_loss
+            explore_trip = self.get_clip_triplet_loss(max_explor_frame_scores, batch['text_labels'])
+            if self.config.label_style == 'soft':
+                explore_nce = self.explore_nce_weight * self.nce_criterion_soft(batch['text_labels'],label_dict,max_explor_frame_scores_,
+                                                                            max_explor_frame_scores_,self.alpha,self.belta)
+            else:
+                explore_nce = self.explore_nce_weight * self.nce_criterion(batch['text_labels'],label_dict,max_explor_frame_scores_)
 
-        return loss, {"loss_overall": float(loss), 'clip_trip_loss': c_tri_loss,
-                      'frame_nce_loss': frame_nce_loss, 'clip_guide_loss': c_guide_loss,
-                      'frame_trip_loss':frame_trip_loss ,'c_nce_loss':c_nce_loss
+        kl_intra = self.kl_intra_weight * self.weight * self.compute_kl_loss(inher_frame_scores, teacher_frame_scores, batch['student_videos_mask'],
+                                       0.2,mode='frame_score',query_labels=batch['text_labels'])
+        kl =  kl_intra 
+
+        loss = inher_trip + inher_nce + kl + explore_trip + explore_nce
+
+        return loss, {"loss_overall": float(loss), 'inher_trip': inher_trip,
+                      'inher_nce': inher_nce, 'explore_trip': explore_trip,
+                      'explore_nce':explore_nce ,'kl':kl,  'kl_intra':kl_intra
                       }
+       
 
+    def compute_kl_loss(self, predict, target, cnn_mask, temp, mode='batch_score', query_labels=None):
+        if mode == 'batch_score':
+            # t2v
+            t2v_kl_loss = 0
+            t2v_predict = F.log_softmax(predict / temp, dim=-1)
+            t2v_target = F.softmax(target / temp, dim=-1)
+            t2v_kl_loss = F.kl_div(t2v_predict, t2v_target, reduction='batchmean')
 
+            # v2t
+            v2t_kl_loss = 0
+            v2t_predict = F.log_softmax(predict.t() / temp, dim=-1)
+            v2t_target = F.softmax(target.t() / temp, dim=-1)
+            v2t_kl_loss = F.kl_div(v2t_predict, v2t_target, reduction='batchmean')
+
+            kl_loss = t2v_kl_loss + v2t_kl_loss
+
+            return kl_loss
+        else:
+            predict = [predict[i, :, x] for i, x in enumerate(query_labels)]
+            predict = torch.stack(predict)
+            target = [target[i, :, x] for i, x in enumerate(query_labels)]
+            target = torch.stack(target)
+
+            cnn_mask = cnn_mask[query_labels]
+            kl_loss = 0
+            for i in range(predict.shape[0]):
+                feat_len = torch.nonzero(cnn_mask[i] > 0).shape[0]
+                predict_ = F.log_softmax(predict[i, :feat_len] / temp, dim=-1)
+                target_ = F.softmax(target[i, :feat_len] / temp, dim=-1)
+                kl_loss += F.kl_div(predict_, target_, reduction='sum')
+
+            return kl_loss
 
     def encode_query(self, query_feat, query_mask):
-        B_encoded_query = self.encode_input(query_feat, query_mask, self.B_query_input_proj, self.B_query_encoder,
-                                            self.B_query_pos_embed)  # (N, Lq, D)
+        inheritance_query = self.encode_input(query_feat, query_mask, self.query_input_proj,
+                                              self.query_encoder, self.query_pos_embed)  # (N, Lq, D)
 
-        B_video_query = self.get_modularized_queries(B_encoded_query, query_mask, t=False)  # (N, D) * 1
+        inheritance_query = self.get_modularized_queries(inheritance_query, query_mask, True)  # (N, D) * 1
+
         if self.double_branch:
-            A_encoded_query = self.encode_input(query_feat, query_mask, self.B_query_input_proj, self.A_query_encoder,
-                                              self.A_query_pos_embed)  # (N, Lq, D)
-            A_video_query = self.get_modularized_queries(A_encoded_query, query_mask)  # (N, D) * 1
-            return A_video_query, B_video_query
-        return None, B_video_query
+            exploration_query = self.encode_input(query_feat, query_mask, self.exp_query_input_proj,
+                                                self.exp_query_encoder,self.exp_query_pos_embed)
+            exploration_query = self.get_modularized_queries(exploration_query, query_mask)  # (N, D) * 1
+            return inheritance_query, exploration_query
+
+        return inheritance_query, None
 
     
 
     def encode_context(self, frame_video_feat, video_mask=None):
-        B_encoded_frame_feat = self.encode_input(frame_video_feat, video_mask, self.B_frame_input_proj,
-                                                 self.B_frame_encoder, self.B_frame_pos_embed)
-        B_encoded_frame_feat = self.B_mapping_linear(B_encoded_frame_feat)
+
+        inheritance_encoded_feat = self.encode_input(frame_video_feat, video_mask, self.visual_input_proj,
+                                                 self.visual_encoder, self.visual_pos_embed)
+        inheritance_encoded_feat = self.out_mapping_linear(inheritance_encoded_feat)
+
         if self.double_branch:
-            A_encoded_frame_feat = self.encode_input(frame_video_feat, video_mask, self.A_frame_input_proj,
-                                                     self.A_frame_encoder, self.A_frame_pos_embed)
-            A_encoded_frame_feat = self.A_mapping_linear(A_encoded_frame_feat)
-            return A_encoded_frame_feat, B_encoded_frame_feat
-        return None, B_encoded_frame_feat
+            exploration_encoded_feat = self.encode_input(frame_video_feat, video_mask, self.exp_visual_input_proj,
+                                                     self.exp_visual_encoder, self.exp_visual_pos_embed)
+            exploration_encoded_feat = self.exp_out_mapping_linear(exploration_encoded_feat)
+            return inheritance_encoded_feat, exploration_encoded_feat
+
+        return inheritance_encoded_feat, None
 
     @staticmethod
     def encode_input(feat, mask, input_proj_layer, encoder_layer, pos_embed_layer):
@@ -189,24 +242,71 @@ class DLDKD(nn.Module):
             mask = mask.unsqueeze(1)  # (N, 1, L), torch.FloatTensor
         return encoder_layer(feat, mask)  # (N, L, D_hidden)
 
-    def get_modularized_queries(self, encoded_query, query_mask,t=True):
+    def get_modularized_queries(self, encoded_query, query_mask, inheritance=False):
         """
         Args:
             encoded_query: (N, L, D)
             query_mask: (N, L)
             return_modular_att: bool
         """
-        if t==True:
-            modular_attention_scores = self.A_modular_vector_mapping(encoded_query)  # (N, L, 2 or 1)
+        if inheritance:
+            modular_attention_scores = self.modular_vector_mapping(encoded_query)
         else:
-            modular_attention_scores = self.B_modular_vector_mapping(encoded_query)  # (N, L, 2 or 1)
+            modular_attention_scores = self.exp_modular_vector_mapping(encoded_query)
         modular_attention_scores = F.softmax(mask_logits(modular_attention_scores, query_mask.unsqueeze(2)), dim=1)
         modular_queries = torch.einsum("blm,bld->bmd", modular_attention_scores, encoded_query)  # (N, 2 or 1, D)
-        return modular_queries
+        return modular_queries.squeeze()
+    @staticmethod
+    def get_query_sim_scores(modularied_query):
+        """
+        Calculate query2query scores for each pair of queries inside the batch.
+        Args:
+            modularied_query: (N, D)
+        Returns:
+            query_query_scores: (N, N) score of each query w.r.t. each other query inside the batch,
+                                diagonal positions are self-similarities (should be 1).
+        """
+
+        modularied_query = F.normalize(modularied_query, dim=-1)
+        
+ 
+        query_query_scores = torch.einsum("nd,md->nm", modularied_query, modularied_query)
+        
+        return query_query_scores
+    @staticmethod
+    def get_video_sim_scores(video_tensor, mode="max"):
+        """
+        Calculate video-to-video similarity scores based on the maximum frame similarity.
+        
+        Args:
+            video_tensor: (batch, frames, dim) tensor, where batch is the number of videos,
+                        frames is the number of frames in each video, and dim is the feature dimension.
+            mode: max== Take the maximum frame similarity between videos as the video similarity
+                  mean== First, take the average of the video frames to get the video representation, and then calculate the similarity between videos
+        Returns:
+            video_video_scores: (batch, batch) similarity score between each pair of videos,
+                                where the score is the maximum frame similarity.
+        """
+       
+        video_tensor = F.normalize(video_tensor, dim=-1)
+        if mode == "max":
+           
+            sim_matrix = torch.einsum('bfd,kfd->bkf', video_tensor, video_tensor)  # (batch, batch, frames)
+            
+           
+            video_video_scores = sim_matrix.max(dim=-1).values
+        elif mode == "mean":
+            video_tensor = torch.mean(video_tensor, dim=1)
+           
+            video_video_scores = torch.einsum('bd,kd->bk', video_tensor, video_tensor)  # (batch, batch, frames)
+            
+            
+        return video_video_scores
+
 
     @staticmethod
-    def get_clip_scale_scores(modularied_query, context_feat, mask=None):
-        """ Calculate video2query scores for each pair of video and query inside the batch.
+    def get_sim_scores(modularied_query, context_feat, mask=None):
+        """ Calculate video2query scores for each pair of video and query inside the batch. cosine sim
         Args:
             modularied_query: (N, D)
             context_feat: (N, L, D), output of the first transformer encoder layer
@@ -229,8 +329,8 @@ class DLDKD(nn.Module):
         return query_context_scores, clip_level_query_context_scores
 
     @staticmethod
-    def get_unnormalized_clip_scale_scores(modularied_query, context_feat, mask=None):
-        """ Calculate video2query scores for each pair of video and query inside the batch.
+    def get_unnormalized_sim_scores(modularied_query, context_feat, mask=None):
+        """ Calculate video2query scores for each pair of video and query inside the batch. 向量点积值
         Args:
             modularied_query: (N, D)
             context_feat: (N, L, D), output of the first transformer encoder layer
@@ -249,30 +349,6 @@ class DLDKD(nn.Module):
         query_context_scores, _ = torch.max(query_context_scores, dim=1)
         return query_context_scores
 
-    #原来的方法
-    def get_pred_from_raw_query(self, video_query, video_query_B, video_feat_1=None, video_feat_2=None,
-                                video_feat_mask=None,return_query_feats=False):
-        if not return_query_feats:
-            video_query, video_query_B = self.encode_query(video_query, video_query_B)
-        if video_query is None:
-            video_query_B = video_query_B.squeeze(1)
-            max_predict_video_score, max_predict_video_score_ = self.get_clip_scale_scores(video_query_B,video_feat_2, video_feat_mask)
-            if return_query_feats:
-                # max_predict_video_score_ = self.get_unnormalized_clip_scale_scores(video_query_B, video_feat_2, video_feat_mask)
-                return None, None, max_predict_video_score, max_predict_video_score_
-            else:
-                return max_predict_video_score, max_predict_video_score
-        else:
-            video_query = video_query.squeeze(1)
-            video_query_B = video_query_B.squeeze(1)
-            max_video_score, _ = self.get_clip_scale_scores(video_query, video_feat_1, video_feat_mask)
-            max_predict_video_score, max_predict_video_score_ = self.get_clip_scale_scores(video_query_B,video_feat_2,video_feat_mask)
-            if return_query_feats:
-                max_video_score_ = self.get_unnormalized_clip_scale_scores(video_query, video_feat_1,video_feat_mask)
-                # max_predict_video_score_ = self.get_unnormalized_clip_scale_scores(video_query_B, video_feat_2, video_feat_mask)
-                return max_video_score, max_video_score_, max_predict_video_score, max_predict_video_score_
-            else:
-                return max_video_score, max_predict_video_score
 
     def get_clip_triplet_loss(self, query_context_scores, labels):
         v2t_scores = query_context_scores.t()

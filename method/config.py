@@ -4,15 +4,6 @@ import torch
 import argparse
 from utils.basic_utils import mkdirp, load_json, save_json, make_zipfile
 
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 class BaseOptions(object):
     saved_option_filename = "opt.json"
@@ -34,10 +25,10 @@ class BaseOptions(object):
                                  help="debug (fast) mode, break all loops, do not load all data into memory.")
 
         self.parser.add_argument("--results_root", type=str, default="results")
-        self.parser.add_argument("--exp_id", type=str, default=None, help="id of this run, required at training")
-        self.parser.add_argument("--seed", type=int, default=2018, help="random seed")
+        self.parser.add_argument("--exp_id", type=str, default='debug', help="id of this run, required at training")
+        self.parser.add_argument("--seed", type=int, default=9527, help="random seed")
         self.parser.add_argument("--device", type=int, default=0, help="0 cuda, -1 cpu")
-        self.parser.add_argument("--device_ids", type=int, nargs="+", default=[1], help="GPU ids to run the job")
+        self.parser.add_argument("--device_ids", type=int, nargs="+", default=[0], help="GPU ids to run the job")
         self.parser.add_argument("--num_workers", type=int, default=8,
                                  help="num subprocesses used to load the data, 0: use main process")
         self.parser.add_argument("--no_core_driver", action="store_true",
@@ -48,7 +39,7 @@ class BaseOptions(object):
         self.parser.add_argument("--lr_warmup_proportion", type=float, default=0.01,
                                  help="Proportion of training to perform linear learning rate warmup.")
         self.parser.add_argument("--wd", type=float, default=0.01, help="weight decay")
-        self.parser.add_argument("--n_epoch", type=int, default=100, help="number of epochs to run")
+        self.parser.add_argument("--n_epoch", type=int, default=120, help="number of epochs to run")
         self.parser.add_argument("--max_es_cnt", type=int, default=10,
                                  help="number of epochs to early stop, use -1 to disable early stop")
 
@@ -59,64 +50,62 @@ class BaseOptions(object):
         self.parser.add_argument("--eval_untrained", action="store_true", help="Evaluate on un-trained model")
         self.parser.add_argument("--grad_clip", type=float, default=-1, help="perform gradient clip, -1: disable")
         self.parser.add_argument("--margin", type=float, default=0.2, help="margin for hinge loss")
-
-        self.parser.add_argument("--train_span_start_epoch", type=int, default=0,
-                                 help="which epoch to start training span prediction, -1 to disable")
-
         self.parser.add_argument("--hard_negative_start_epoch", type=int, default=0,
                                  help="which epoch to start hard negative sampling for video-level ranking loss,"
                                       "use -1 to disable")
         self.parser.add_argument("--hard_pool_size", type=int, default=20,
                                  help="hard negatives are still sampled, but from a harder pool.")
         # Model and Data config
-        self.parser.add_argument("--max_sub_l", type=int, default=50,
-                                 help="max length of all sub sentence 97.71 under 50 for 3 sentences")
         self.parser.add_argument("--max_desc_l", type=int, default=30, help="max length of descriptions")
         self.parser.add_argument("--max_ctx_l", type=int, default=128)
         self.parser.add_argument("--train_path", type=str, default=None)
         self.parser.add_argument("--eval_path", type=str, default=None)
-
-        self.parser.add_argument("--sub_feat_size", type=int, default=768, help="feature dim for sub feature")
         self.parser.add_argument("--q_feat_size", type=int, default=1024, help="feature dim for query feature")
-
-
         self.parser.add_argument("--no_norm_vfeat", action="store_true",
                                  help="Do not do normalization on video feat, use it only when using resnet_i3d feat")
         self.parser.add_argument("--no_norm_tfeat", action="store_true", help="Do not do normalization on text feat")
 
         self.parser.add_argument("--vid_feat_size", type=int, help="feature dim for video feature")
         self.parser.add_argument("--max_position_embeddings", type=int, default=300)
-        self.parser.add_argument("--A_hidden_size", type=int, default=384)
-        self.parser.add_argument("--B_hidden_size", type=int, default=384)
+        self.parser.add_argument("--inheritance_hidden", type=int, default=384)
+        self.parser.add_argument("--exploration_hidden", type=int, default=384)
         self.parser.add_argument("--n_heads", type=int, default=4)
         self.parser.add_argument("--input_drop", type=float, default=0.1, help="Applied to all inputs")
         self.parser.add_argument("--drop", type=float, default=0.1, help="Applied to all other layers")
-
         self.parser.add_argument("--initializer_range", type=float, default=0.02, help="initializer range for layers")
         # post processing
 
         self.parser.add_argument("--model_name", type=str, default='DLDKD')
-        self.parser.add_argument('--root_path', type=str)
-        self.parser.add_argument('--visual_feature', type=str)
-        self.parser.add_argument('--collection', type=str)
-        self.parser.add_argument("--map_size", type=int, default=32)
-        self.parser.add_argument('--use_sub', type=bool, default=False)
-        self.parser.add_argument('--clip_scale_w', type=float, default=0.7)
-        self.parser.add_argument('--frame_scale_w', type=float, default=0.3)
+        self.parser.add_argument('--root_path', type=str, default='')
+        self.parser.add_argument('--visual_feature', type=str, default='i3d')
+        self.parser.add_argument('--collection', type=str, default='activitynet')
 
-        self.parser.add_argument('--frame_weight', type=float, default=0.5)
-        self.parser.add_argument('--clip_weight', type=float, default=0.5)
-        self.parser.add_argument('--loss_init_weight', type=float, default=0.1)
-        self.parser.add_argument('--loss_scale_weight', type=float, default=0.1)
-        self.parser.add_argument('--linear_k', type=float)
-        self.parser.add_argument('--sigmoid_k', type=float)
-        self.parser.add_argument('--linear_b', type=float)
-        self.parser.add_argument('--exponential_k', type=float)
-        self.parser.add_argument('--decay_way', type=int, default=0)
+        self.parser.add_argument('--linear_k', type=float, default=-0.01)
+        self.parser.add_argument('--sigmoid_k', type=float, default=800)
+        self.parser.add_argument('--selfDistil_sigmoid_k', type=float, default=800)
+        self.parser.add_argument('--linear_b', type=float, default=1)
+        self.parser.add_argument('--exponential_k', type=float, default=0.95)
 
-        self.parser.add_argument('--double_branch', type=str2bool, default=False)
-        self.parser.add_argument('--use_clip', type=str2bool, default=False)
-        self.parser.add_argument('--use_clip_guiyi', type=bool, default=False)
+        self.parser.add_argument('--distill_loss_decay', type=str)
+        self.parser.add_argument('--double_branch',action="store_true")
+        self.parser.add_argument('--teacher', type=str, default='clip')
+        self.parser.add_argument('--student', type=str, default='i3d')
+
+        self.parser.add_argument('--kl_intra_weight', type=float, default=0.1)
+       
+        self.parser.add_argument('--inher_nce_weight', type=float, default=0.04)
+        self.parser.add_argument('--explore_nce_weight', type=float, default=0.04)
+
+        self.parser.add_argument('--label_style', type=str, default="hard", help="hard or soft")
+        self.parser.add_argument('--alpha', type=float, default=0.8, help="nce loss self-distillation, data partition threshold")
+        self.parser.add_argument('--belta', type=float, default=0.8, help="nce loss self-distillation, GroundTruth and soft weighted and weighted")
+        self.parser.add_argument('--alpha_decay', type=str, default="sigmoid", help="exp linear sigmoid cosine None")
+        self.parser.add_argument('--belta_decay', type=str, default="sigmoid", help="exp linear sigmoid cosine None")
+
+        
+
+
+
     def display_save(self, opt):
         args = vars(opt)
         # Display settings
@@ -131,6 +120,8 @@ class BaseOptions(object):
         if not self.initialized:
             self.initialize()
         opt = self.parser.parse_args()
+        if opt.dset_name is None:
+            opt.dset_name = opt.collection
         if opt.debug:
             opt.results_root = os.path.sep.join(opt.results_root.split(os.path.sep)[:-1] + ["debug_results", ])
             opt.no_core_driver = True
@@ -143,40 +134,12 @@ class BaseOptions(object):
             for arg in saved_options:  # use saved options to overwrite all BaseOptions args.
                 if arg not in ["results_root", "num_workers", "nms_thd", "debug",
                                "eval_split_name", "eval_path", "eval_query_bsz", "eval_context_bsz",
-                               "max_pred_l", "min_pred_l", "external_inference_vr_res_path",'root_path','model_dir','model_name']:
+                               "max_pred_l", "min_pred_l", "external_inference_vr_res_path",'root_path','model_dir']:
                     setattr(opt, arg, saved_options[arg])
         else:
-            # if opt.exp_id is None:
-            #     raise ValueError("--exp_id is required for at a training option!")
-            if opt.exp_id == 'test':
-                opt.results_root='test'
-            else:
-                opt.exp_id=""
-                if opt.double_branch:
-                    opt.exp_id+="double"
-                else:
-                    opt.exp_id += "singal"
-                if opt.use_clip:
-                    opt.exp_id+="_kl"
-                    if opt.decay_way==1:
-                        opt.exp_id+=f"_exponential_decay_k{opt.exponential_k}"
-                    elif opt.decay_way==2:
-                        opt.exp_id += f"_linear_decay_k{opt.linear_k}_b{opt.linear_b}"
-                    elif opt.decay_way==3:
-                        opt.exp_id += f"_sigmoid_decay_k{opt.sigmoid_k}"
-                    elif opt.decay_way == 4:
-                        opt.exp_id += f"_exponential_up_k{opt.exponential_k}_init_loss_weight{opt.loss_init_weight}"
-                    elif opt.decay_way == 5:
-                        opt.exp_id += f"_linear_up_k{opt.linear_k}_b{opt.linear_b}_init_loss_weight{opt.loss_init_weight}"
-                    elif opt.decay_way == 6:
-                        opt.exp_id += f"_sigmoid_up_k{opt.sigmoid_k}_init_loss_weight{opt.loss_init_weight}"
-                    elif opt.decay_way == 7:
-                        opt.exp_id += f"_7_ex_up_k{opt.sigmoid_k}"
-                    elif opt.decay_way == 8:
-                        opt.exp_id += f"_8_ex_up_k{opt.sigmoid_k}"
-                    # opt.exp_id += f"_feat_dis_kl"
-                    opt.exp_id += f"_loss_scale_weight{opt.loss_scale_weight}"
-            opt.results_dir = os.path.join(opt.results_root, "-".join([opt.dset_name, opt.exp_id,
+            if opt.exp_id is None:
+                raise ValueError("--exp_id is required for at a training option!")
+            opt.results_dir = os.path.join(opt.results_root,opt.dset_name,  "-".join([opt.dset_name, opt.exp_id,
                                                                        time.strftime("%Y_%m_%d_%H_%M_%S")]))
             mkdirp(opt.results_dir)
             # save a copy of current code
@@ -209,7 +172,7 @@ class TestOptions(BaseOptions):
     def initialize(self):
         BaseOptions.initialize(self)
         # also need to specify --eval_split_name
-        self.parser.add_argument("--eval_id", type=str, help="evaluation id")
-        self.parser.add_argument("--model_dir", type=str,
+        self.parser.add_argument("--eval_id", type=str, help="evaluation id", default="test")
+        self.parser.add_argument("--model_dir", type=str, 
                                  help="dir contains the model file, will be converted to absolute path afterwards")
 

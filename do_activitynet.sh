@@ -1,32 +1,21 @@
+#!/bin/bash
+root_path=$1
+
+exp_id="ac_DLDKD++"
 collection=activitynet
 visual_feature=i3d
-map_size=32
 model_name=DLDKD
-root_path=$1
 device_ids=0
-frame_weight=0.5
-clip_weight=0.5
-A_hidden_size=384
-B_hidden_size=384
-n_heads=4
-hard_negative_start_epoch=0
-double_branch=true
-use_clip=true
-decay_way=1
-loss_init_weight=0.1
-loss_scale_weight=0.1
-linear_b=1
-linear_k=-0.01
-sigmoid_k=800
-exponential_k=0.95
-# training
+q_feat_size=1024
+drop=0.25
+input_drop=0.25
+label_style=soft
+
+
 CUDA_VISIBLE_DEVICES=0 python method/train.py --collection $collection --visual_feature $visual_feature \
                       --root_path $root_path --dset_name $collection \
-                      --map_size $map_size --model_name $model_name --device_ids $device_ids \
-                      --B_hidden_size $B_hidden_size --n_heads $n_heads --A_hidden_size $A_hidden_size \
-                      --frame_weight $frame_weight --clip_weight $clip_weight \
-                      --use_clip $use_clip --double_branch $double_branch --hard_negative_start_epoch $hard_negative_start_epoch \
-                      --loss_init_weight $loss_init_weight --decay_way $decay_way \
-                      --linear_k $linear_k --sigmoid_k $sigmoid_k --linear_b $linear_b \
-                      --exponential_k $exponential_k --loss_scale_weight $loss_scale_weight
-
+                      --model_name $model_name --device_ids $device_ids  \
+                      --distill_loss_decay exp --exp_id $exp_id\
+                      --double_branch  --drop $drop --input_drop $input_drop  \
+                      --q_feat_size $q_feat_size \
+                      --label_style $label_style \

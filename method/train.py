@@ -6,7 +6,8 @@ import pprint
 import random
 import numpy as np
 import warnings
-
+import json
+import logging
 warnings.filterwarnings("ignore")
 from torch import optim as optim
 from easydict import EasyDict as EDict
@@ -16,48 +17,28 @@ import torch
 import torch.nn as nn
 import math
 import torch.backends.cudnn as cudnn
-
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
 
-sys.path.append("/home/zz/code/DL-DKD")
+
+project_root = Path(__file__).resolve().parents[1]
+sys.path.append(str(project_root))
+
 from method.config import BaseOptions
 from method.model import DLDKD
-
 from method.data_provider import Dataset4DLDKD, VisDataSet4DLDKD, \
     TxtDataSet4DLDKD, collate_train, read_video_ids
-
 from method.eval import eval_epoch, start_inference
 from method.optimization import BertAdam
-from utils.basic_utils import AverageMeter, BigFile, read_dict, log_config
+from utils.basic_utils import AverageMeter, BigFile, BigFile16, read_dict, log_config
 from utils.model_utils import count_parameters
 
-import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s - %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
-
-def weight_decay(k, rate):
-    weight = k ** rate
-    return weight
-
-
-def weight_sigmoid_decay(k, epoch):
-    weight = k / (k + math.exp(epoch * 100 / k))
-    return weight
-
-
-def weight_linear_decay(b, k, epoch):
-    weight = k * epoch + b
-    weight = max(weight, 0.05)
-    return weight
-
-
-def weight_up(weight, rate):
-    weight = weight ** rate
-    return weight
 
 
 def set_seed(seed, use_cuda=True):
@@ -79,58 +60,87 @@ def train_epoch(model, train_loader, optimizer, opt, epoch_i, training=True):
     prepare_inputs_time = AverageMeter()
     model_forward_time = AverageMeter()
     model_backward_time = AverageMeter()
-    loss_meters = OrderedDict(clip_trip_loss=AverageMeter(),
-                              frame_nce_loss=AverageMeter(), frame_trip_loss=AverageMeter(),
-                              loss_overall=AverageMeter(), clip_guide_loss=AverageMeter(),
-                              c_nce_loss=AverageMeter(),
+    loss_meters = OrderedDict(inher_trip=AverageMeter(),inher_nce=AverageMeter(),
+                              explore_trip=AverageMeter(),explore_nce=AverageMeter(),
+                              kl_intra=AverageMeter(), kl=AverageMeter(),
+                              loss_overall=AverageMeter(),
+                              
                               )
 
     num_training_examples = len(train_loader)
-
     timer_dataloading = time.time()
 
-    # 蒸馏损失权重下降
-    if opt.decay_way != 0:
-        if opt.decay_way == 1:
-            # 指数下降
-            model.weight = weight_decay(opt.exponential_k, epoch_i)
-        elif opt.decay_way == 2:
-            # 线性下降
-            model.weight = weight_linear_decay(opt.linear_b, opt.linear_k, epoch_i)
-        elif opt.decay_way == 3:
-            # sigmoid下降
-            model.weight = weight_sigmoid_decay(opt.sigmoid_k, epoch_i)
-        elif opt.decay_way == 4:
-            # 指数上升
-            model.weight = 1 - weight_decay(opt.exponential_k, epoch_i)
-        elif opt.decay_way == 5:
-            # 线性上升
-            model.weight = 1 - weight_linear_decay(opt.linear_b, opt.linear_k, epoch_i)
-        elif opt.decay_way == 6:
-            # sigmoid上升
-            model.weight = 1 - weight_sigmoid_decay(opt.sigmoid_k, epoch_i)
-        elif opt.decay_way == 7:
-            #指数上升
-            model.weight = min(0.001*weight_up(1.05,epoch_i),0.1)
-        elif opt.decay_way == 8:
-            model.weight = max(min(0.1*(1 - weight_decay(opt.exponential_k, epoch_i)),0.1),0.001)
+    if opt.distill_loss_decay is not None:
+        assert opt.distill_loss_decay in ['exp', 'sigmoid', 'linear','None']
+        if opt.distill_loss_decay == 'exp':
+            model.weight = opt.exponential_k ** epoch_i
+        elif opt.distill_loss_decay == 'linear':
+            model.weight = max(opt.linear_k * epoch_i + opt.linear_b, 0.05)
+        elif opt.distill_loss_decay == 'sigmoid':
+            model.weight = opt.sigmoid_k / (opt.sigmoid_k + math.exp(epoch_i * 100 / opt.sigmoid_k))
+        elif opt.distill_loss_decay == 'None':
+            model.weight = 1
+    sigmoid_k = opt.selfDistil_sigmoid_k       
+    
+    if opt.alpha_decay is not None:
+        assert opt.alpha_decay in ['exp', 'sigmoid', 'linear', 'cosine', 'None']
 
+        initial_alpha = opt.alpha 
+        if initial_alpha < 0.2:
+            min_alpha = 0
+        else:
+            min_alpha = 0.0
 
+        if opt.alpha_decay == 'exp':
+            model.alpha = max(initial_alpha * (opt.exponential_k ** epoch_i), min_alpha)  
+        elif opt.alpha_decay == 'linear':
+            model.alpha = max(initial_alpha + ((min_alpha-initial_alpha)/opt.n_epoch) * epoch_i, min_alpha) 
+        elif opt.alpha_decay == 'sigmoid':
+            model.alpha = max(initial_alpha * (sigmoid_k / (sigmoid_k + math.exp(epoch_i * 100 / sigmoid_k))), min_alpha) 
+        elif opt.alpha_decay == 'cosine':
+
+            model.alpha = max(min_alpha + 0.5 * (initial_alpha - min_alpha) * (1 + math.cos(math.pi * epoch_i / opt.n_epoch)), min_alpha)
+        elif opt.alpha_decay == 'None':
+            model.alpha = initial_alpha  
+    
+    if opt.belta_decay is not None:
+        assert opt.belta_decay in ['exp', 'sigmoid', 'linear', 'cosine', 'None']
+
+        initial_belta = opt.belta 
+        if initial_belta < 0.5:
+            min_belta = 0
+        else:
+            min_belta =  0.5
+        if opt.belta_decay == 'exp':
+            current_belta = max(initial_belta * (opt.exponential_k ** epoch_i), min_belta)  # 确保不低于 min_belta
+        elif opt.belta_decay == 'linear':
+            current_belta = max(initial_belta + ((min_belta-initial_belta)/opt.n_epoch) * epoch_i, min_belta)  # 确保不低于 min_belta
+        elif opt.belta_decay == 'sigmoid':
+            current_belta = max(initial_belta * (sigmoid_k / (sigmoid_k + math.exp(epoch_i * 100 / sigmoid_k))), min_belta)  # 确保不低于 min_belta
+        elif opt.belta_decay == 'cosine':
+            current_belta = max(min_belta + 0.5 * (initial_belta - min_belta) * (1 + math.cos(math.pi * epoch_i / opt.n_epoch)), min_belta)
+        elif opt.belta_decay == 'None':
+            current_belta = initial_belta  
+        
+        model.belta = current_belta
+            
+    
+    logger.info(f"\n Epoch {epoch_i}, Alpha: {model.alpha}, belta: {model.belta}")
+
+   
     for batch_idx, batch in tqdm(enumerate(train_loader), desc="Training Iteration", total=num_training_examples):
         global_step = epoch_i * num_training_examples + batch_idx
         dataloading_time.update(time.time() - timer_dataloading)
 
         timer_start = time.time()
         for k in batch.keys():
-            if k != 'text_labels' and batch[k] is not None and k != 'cap_ids':
+            if k != 'text_labels':
                 batch[k] = batch[k].to(opt.device)
-        # model_inputs = prepare_batch_inputs(batch[1], opt.device, non_blocking=opt.pin_memory)
         prepare_inputs_time.update(time.time() - timer_start)
         timer_start = time.time()
-        loss, loss_dict = model(batch['frame_video_features'], batch['clip_video_features'], batch['videos_mask'],
-                                batch['text_feat'], batch['text_mask'], batch['clip_text_feat'], batch['text_labels'],
-                                batch['cap_ids'])
-
+        loss, loss_dict = model(batch)
+     
+       
         model_forward_time.update(time.time() - timer_start)
         timer_start = time.time()
         if training:
@@ -150,9 +160,9 @@ def train_epoch(model, train_loader, optimizer, opt, epoch_i, training=True):
         timer_dataloading = time.time()
         if opt.debug and batch_idx == 3:
             break
-
+    
+     
     if training:
-
         to_write = opt.train_log_txt_formatter.format(time_str=time.strftime("%Y_%m_%d_%H_%M_%S"), epoch=epoch_i,
                                                       loss_str=" ".join(["{} {:.4f}".format(k, v.avg)
                                                                          for k, v in loss_meters.items()]))
@@ -204,19 +214,20 @@ def train(model, train_dataset, val_video_dataset, val_text_dataset, opt):
     prev_best_score = 0.
     es_cnt = 0
     start_epoch = -1 if opt.eval_untrained else 0
-
+    
+    
     for epoch_i in trange(start_epoch, opt.n_epoch, desc="Epoch"):
-        model.epoch = epoch_i
+        
+            
         if epoch_i > -1:
             with torch.autograd.detect_anomaly():
                 train_epoch(model, train_loader, optimizer, opt, epoch_i, training=True)
+                
+              
         with torch.no_grad():
             rsum = eval_epoch(model, val_video_dataset, val_text_dataset, opt)
-
         stop_score = rsum
-        # if epoch_i==19:
-        #     torch.save(model.state_dict(), f'/home/zms/code/clip_guided/{pre_train_model_name}.pth')
-
+      
         if stop_score > prev_best_score:
             es_cnt = 0
             prev_best_score = stop_score
@@ -248,7 +259,6 @@ def start_training(opt):
     opt.eval_log_txt_formatter = "{time_str} [Epoch] {epoch:03d} [Metrics] {eval_metrics_str}\n"
 
     rootpath = opt.root_path
-
     collection = opt.collection
 
     trainCollection = '%strain' % collection
@@ -256,40 +266,44 @@ def start_training(opt):
 
     cap_file = {'train': '%s.caption.txt' % trainCollection,
                 'val': '%s.caption.txt' % valCollection, }
-
-    text_feat_path = os.path.join(rootpath, collection, 'TextData', 'roberta_%s_query_feat.hdf5' % collection)
+    
+    text_feat_path = {'train':os.path.join(rootpath, collection, 'TextData', 'roberta_%s_query_feat.hdf5' % collection),
+                        'val':os.path.join(rootpath, collection, 'TextData', 'roberta_%s_query_feat.hdf5' % collection)}
 
     # caption
     caption_files = {x: os.path.join(rootpath, collection, 'TextData', cap_file[x])
                      for x in cap_file}
     # Load visual features
     visual_feat_path = os.path.join(rootpath, collection, 'FeatureData', opt.visual_feature)
-    # clip_vid_feat_path = os.path.join(rootpath, collection, 'FeatureData',f'clip_{opt.clip_model_name}_%s_vid_feat.hdf5' % collection)
-    clip_vid_feat_path = os.path.join(rootpath, collection, 'FeatureData',
-                                      f'new_clip_vit_32_{collection}_vid_features.hdf5')
-    clip_text_feat_path = os.path.join(rootpath, collection, 'TextData',
-                                       f'clip_ViT_B_32_%s_query_feat.hdf5' % collection)
+    
+    teacher_vid_feat_path = os.path.join(rootpath, collection, 'FeatureData',
+                                            f'new_clip_vit_32_{collection}_vid_features.hdf5')
+    teacher_text_feat_path = os.path.join(rootpath, collection, 'TextData',
+                                        f'clip_ViT_B_32_%s_query_feat.hdf5' % collection)
+    
+   
+    print(teacher_vid_feat_path)
     visual_feats = BigFile(visual_feat_path)
+
+
     opt.visual_feat_dim = visual_feats.ndims
 
+
     video2frames = read_dict(os.path.join(rootpath, collection, 'FeatureData', opt.visual_feature, 'video2frames.txt'))
-
-    train_dataset = Dataset4DLDKD(caption_files['train'], visual_feats, text_feat_path, clip_vid_feat_path,
-                                  clip_text_feat_path, opt, video2frames=video2frames)
-
-    val_text_dataset = TxtDataSet4DLDKD(caption_files['val'], text_feat_path, opt)
+    train_dataset = Dataset4DLDKD(caption_files['train'], visual_feats, text_feat_path['train'], teacher_vid_feat_path,
+                                  teacher_text_feat_path, opt, video2frames=video2frames)
+    val_text_dataset = TxtDataSet4DLDKD(caption_files['val'], text_feat_path['val'], opt)
 
     val_video_ids_list = read_video_ids(caption_files['val'])
     val_video_dataset = VisDataSet4DLDKD(visual_feats, video2frames, opt, video_ids=val_video_ids_list)
 
     model_config = EDict(
         visual_input_size=opt.visual_feat_dim,
-        query_input_size=opt.q_feat_size,  # for both desc and subtitles
-        A_hidden_size=opt.A_hidden_size,  # hidden dimension
-        B_hidden_size=opt.B_hidden_size,  # hidden dimension
+        query_input_size=opt.q_feat_size,
+        inheritance_hidden=opt.inheritance_hidden,
+        exploration_hidden=opt.exploration_hidden,
         max_ctx_l=opt.max_ctx_l,
         max_desc_l=opt.max_desc_l,
-        map_size=opt.map_size,
         input_drop=opt.input_drop,
         device=opt.device_ids,
         drop=opt.drop,
@@ -302,6 +316,9 @@ def start_training(opt):
 
     NAME_TO_MODELS = {'DLDKD': DLDKD}
     model = NAME_TO_MODELS[opt.model_name](model_config, opt)
+
+    
+    
     count_parameters(model)
 
     logger.info("Start Training...")
@@ -324,4 +341,4 @@ if __name__ == '__main__':
         logger.info("\n\n\nFINISHED TRAINING!!!")
         logger.info("Evaluating model in {}".format(model_dir))
         logger.info("Input args {}".format(sys.argv[1:]))
-        start_inference()
+        start_inference(opt)
