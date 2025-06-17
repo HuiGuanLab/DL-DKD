@@ -40,7 +40,7 @@ We used Anaconda to setup a deep learning workspace that supports PyTorch. Run t
 ```
 conda create --name DLDKD python=3.8
 conda activate DLDKD
-git clone https://github.com/HuiGuanLab/DL-DKD.git 待修改
+git clone https://github.com/HuiGuanLab/DL-DKD.git
 cd DL-DKD
 pip install -r requirements.txt
 conda deactivate
@@ -210,7 +210,7 @@ unzip DLDKD++_checkpoint.zip -d $ROOTPATH/
 | :---------: | :--: | :--: | :--: | :---: | :---: |
 | Text-to-Video | 1.9 | 7.1 | 12.3 | 49.8  | 71.1 |
 
-以下待修改
+
 ## Reference
 ```
 @inproceedings{dong2023DLDKD,
