@@ -5,6 +5,8 @@
 
 <img src="figures/DLDKD++.png" width="1100px">
 
+When you switch to the **ICCV branch**, it is the code for our **ICCV conference version paper**
+
 ## Table of Contents
 
 * [Environments](#environments)
@@ -40,7 +42,7 @@ We used Anaconda to setup a deep learning workspace that supports PyTorch. Run t
 ```
 conda create --name DLDKD python=3.8
 conda activate DLDKD
-git clone https://github.com/HuiGuanLab/DL-DKD.git
+git clone https://github.com/HuiGuanLab/DL-DKD.git # 
 cd DL-DKD
 pip install -r requirements.txt
 conda deactivate
@@ -51,10 +53,14 @@ conda deactivate
 ### Required Data
 Run the following script to download the video feature and text feature of the TVR dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/8086102776f4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
+When you set label_style=hard, the model results are based on the results of the **ICCV conference version paper**. 
 
+**DLDKD++ defaults to label_style=soft**
 
 ### Training
 Run the following script to train `DL-DKD++` network on TVR. It will save the chechpoint that performs best on the validation set as the final model.
+
+label_style
 
 ```
 root_path=$HOME/VisualSearch
@@ -110,6 +116,10 @@ unzip DLDKD++_checkpoint.zip -d $ROOTPATH/
 ### Required Data
 Run the following script to download the video feature and text feature of the Activitynet dataset and place them in the specified path. The data can also be downloaded from [Kuake pan](https://pan.quark.cn/s/4df1583afa13). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
 
+When you set label_style=hard, the model results are based on the results of the **ICCV conference version paper**. 
+
+**DLDKD++ defaults to label_style=soft**
+
 ```
 root_path=$HOME/VisualSearch
 mkdir -p $root_path && cd $root_path
@@ -161,6 +171,10 @@ unzip DLDKD++_checkpoint.zip -d $ROOTPATH/
 ## DL-DKD++ on Charades-STA
 ### Required Data
 Run the following script to download the video feature and text feature of the Charades-STA dataset and place them in the specified path. The data can also be downloaded from [Baidu pan](https://pan.baidu.com/s/1UNu67hXCbA6ZRnFVPVyJOA?pwd=8bh4). Please refer to [here](https://github.com/HuiGuanLab/ms-sl/tree/main/dataset) for more description of the dataset.
+
+When you set label_style=hard, the model results are based on the results of the **ICCV conference version paper**. 
+
+**DLDKD++ defaults to label_style=soft**
 
 ```
 root_path=$HOME/VisualSearch
