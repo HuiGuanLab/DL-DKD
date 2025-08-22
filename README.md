@@ -5,7 +5,7 @@
 
 <img src="figures/DLDKD++.png" width="1100px">
 
-When you switch to the **ICCV branch**, it is the code for our **ICCV conference version paper**
+This repository contains the source code of [DL-DKD model](https://openaccess.thecvf.com/content/ICCV2023/html/Dong_Dual_Learning_with_Dynamic_Knowledge_Distillation_for_Partially_Relevant_Video_ICCV_2023_paper.html) and the extended [DL-DKD++ model](). If you would like to visit the DL-DKD model, please switch to the **ICCV branch**.
 
 ## Table of Contents
 
