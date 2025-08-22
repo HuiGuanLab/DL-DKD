@@ -227,11 +227,12 @@ unzip DLDKD++_checkpoint.zip -d $ROOTPATH/
 
 ## Reference
 ```
-@inproceedings{dong2023DLDKD,
-title = {Dual Learning with Dynamic Knowledge Distillation for Partially Relevant Video Retrieval},
-author = {Jianfeng Dong and Minsong Zhang and Zheng Zhang and Xianke Chen and Daizong Liu and Xiaoye Qu and Xun Wang and Baolong Liu},
-booktitle = {IEEE International Conference on Computer Vision},
-year = {2023},
+@inproceedings{dong2023dual,
+  title={Dual learning with dynamic knowledge distillation for partially relevant video retrieval},
+  author={Dong, Jianfeng and Zhang, Minsong and Zhang, Zheng and Chen, Xianke and Liu, Daizong and Qu, Xiaoye and Wang, Xun and Liu, Baolong},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
+  pages={11302--11312},
+  year={2023}
 }
 ```
 ## Acknowledgement
