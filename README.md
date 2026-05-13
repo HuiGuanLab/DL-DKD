@@ -1,4 +1,4 @@
-# DL-DKD++
+# Dual Learning with Dynamic Knowledge Distillation and Soft Alignment for Partially Relevant Video Retrieval
 <!-- Source code of our ICCV 2023 paper [Dual Learning with Dynamic Knowledge Distillation for  Partially Relevant Video Retrieval](). -->
 
 <!-- Homepage of our paper [http://danieljf24.github.io/prvr/](http://danieljf24.github.io/prvr/). -->
@@ -227,12 +227,11 @@ unzip DLDKD++_checkpoint.zip -d $ROOTPATH/
 
 ## Reference
 ```
-@inproceedings{dong2023dual,
-  title={Dual learning with dynamic knowledge distillation for partially relevant video retrieval},
-  author={Dong, Jianfeng and Zhang, Minsong and Zhang, Zheng and Chen, Xianke and Liu, Daizong and Qu, Xiaoye and Wang, Xun and Liu, Baolong},
-  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
-  pages={11302--11312},
-  year={2023}
+@article{dong2025dual,
+  title={Dual Learning with Dynamic Knowledge Distillation and Soft Alignment for Partially Relevant Video Retrieval},
+  author={Dong, Jianfeng and Huang, Lei and Liu, Daizong and Chen, Xianke and Yang, Xun and Lin, Changting and Wang, Xun and Wang, Meng},
+  journal={arXiv preprint arXiv:2510.12283},
+  year={2025}
 }
 ```
 ## Acknowledgement
